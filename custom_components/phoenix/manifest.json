@@ -1,0 +1,13 @@
+{
+  "domain": "phoenix",
+  "name": "Phoenix",
+  "codeowners": ["@Paskooter"],
+  "config_flow": true,
+  "dependencies": ["conversation"],
+  "documentation": "https://github.com/Paskooter/phoenix-home-assistant",
+  "integration_type": "service",
+  "iot_class": "cloud_push",
+  "issue_tracker": "https://github.com/Paskooter/phoenix-home-assistant/issues",
+  "requirements": [],
+  "version": "0.1.0b1"
+}

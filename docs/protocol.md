@@ -1,0 +1,15 @@
+# Connector protocol 1
+
+The integration exchanges a one-time owner code through `POST /api/home-assistant/exchange` with JSON `{"code":"…"}`. The server returns `v: 1`, a UUID `installation_id`, and an opaque `credential`. Use `Authorization: Bearer <credential>` on an outbound `wss://<Phoenix origin>/api/home-assistant/connect` connection. HTTP redirects are refused and TLS certificates are verified. Code exchange is not retried automatically.
+
+All WebSocket frames are JSON objects, at most 8192 bytes, with `v: 1`. The server sends a `welcome` with `session_id` (UUID), `server_time_ms`, and `heartbeat_ms: 20000`. The connector responds with `ready`, the same session ID, `agent: "home_assistant"`, `ha_version`, and `integration_version`. It explicitly passes `conversation.HOME_ASSISTANT_AGENT` to `async_converse`; the official constant currently identifies `conversation.home_assistant`.
+
+The server sends `command` with the session ID, UUID `request_id`, opaque UUID `robot_id`, English `text` of at most 500 characters, `language: "en"`, and absolute server-clock `deadline_ms`. The robot ID is an installation binding, not a robot account or household identifier. The welcome's clock anchor and elapsed monotonic time determine remaining time on the HA side. Server command budgets are 7.5 seconds; a connector rejects a budget over 15 seconds.
+
+Before execution the connector persists a bounded request-ID tombstone, then sends `accepted`. It invokes HA locally once. `result` includes request/session IDs and a result object: `outcome` (`success`, `partial`, `error`, `uncertain`, or `expired`), `response_type` (`action_done`, `query_answer`, or `error`), plain `speech` (at most 500 characters), and optional error `code`, success/failed counts, and conversation ID. Phoenix validates correlation and deadlines, ignores late/duplicate results, escapes text using its existing ESML response builder, and never retries an uncertain action.
+
+Live duplicate IDs return the cached result or acceptance; remembered IDs after reconnect/restart return uncertainty without execution. Expired commands return `expired`. There is at most one pending action per robot and four per connection. No work is replayed after reconnect or restart. Tombstones survive at least until a request deadline plus sixty seconds; after that the original request is already expired.
+
+WebSocket ping/pong detects stale connectors independently of voice work. Close `4001` requires reauthentication, `4002` stops a replaced connection, and `4003` stops an incompatible/malformed protocol. Transport loss reconnects with backoff. `DELETE /api/home-assistant/installation` with the credential revokes that installation.
+
+A socket or heartbeat is not a Hub voice transaction. Actual Gateway listen/execute/reply work remains in the existing transaction lifecycle, including deployment admission and cancellation. Authorization is derived from verified Gateway robot claims and live Account ownership records. Household IDs in client context or headers confer no access.

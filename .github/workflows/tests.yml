@@ -1,0 +1,48 @@
+name: Tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        homeassistant: ["2026.8.1", "2026.9.4"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check out Phoenix test backend
+        uses: actions/checkout@v4
+        with:
+          repository: Paskooter/phoenix
+          path: phoenix-server
+      - run: npm ci --ignore-scripts
+        working-directory: phoenix-server
+      - run: python -m pip install homeassistant==${{ matrix.homeassistant }} -r requirements-test.txt -r requirements-conversation-${{ matrix.homeassistant }}.txt
+      - run: ruff check custom_components tests
+      - run: ruff format --check custom_components tests
+      - run: python -m pytest -q -s
+        env:
+          PHOENIX_SERVER_DIR: ${{ github.workspace }}/phoenix-server
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@main
+        with:
+          category: integration
+          ignore: brands
+  hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master

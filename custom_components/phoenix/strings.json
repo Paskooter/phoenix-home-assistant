@@ -1,0 +1,63 @@
+{
+  "title": "Phoenix",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Link Phoenix",
+        "description": "Generate a connection code in your Phoenix console \u2192 Home Assistant. It expires after ten minutes. Choose exposed devices in Home Assistant \u2192 Settings \u2192 Voice assistants \u2192 Expose. Self-hosted servers need a trusted HTTPS certificate.",
+        "data": {
+          "phoenix_url": "Phoenix server URL",
+          "connection_code": "One-time connection code"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Relink Phoenix",
+        "description": "Generate a connection code in your Phoenix console \u2192 Home Assistant. It expires after ten minutes. Choose exposed devices in Home Assistant \u2192 Settings \u2192 Voice assistants \u2192 Expose. Self-hosted servers need a trusted HTTPS certificate.",
+        "data": {
+          "phoenix_url": "Phoenix server URL",
+          "connection_code": "One-time connection code"
+        }
+      },
+      "reconfigure": {
+        "title": "Change Phoenix connection",
+        "description": "Generate a connection code in your Phoenix console \u2192 Home Assistant. It expires after ten minutes. Choose exposed devices in Home Assistant \u2192 Settings \u2192 Voice assistants \u2192 Expose. Self-hosted servers need a trusted HTTPS certificate.",
+        "data": {
+          "phoenix_url": "Phoenix server URL",
+          "connection_code": "One-time connection code"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "Enter an HTTPS server origin without a path, username, query, or fragment.",
+      "invalid_code": "This code is expired, already used, or invalid. Generate a new code in Phoenix.",
+      "cannot_connect": "Unable to reach Phoenix. Check the server URL and connection. If a code may have been used, disconnect that installation in Phoenix and generate a new code.",
+      "rate_limited": "Too many linking attempts. Wait fifteen minutes and generate a new code.",
+      "already_linked": "A selected Jibo is already linked. Disconnect its old installation in Phoenix first.",
+      "unsupported_protocol": "This Phoenix server uses an unsupported connector protocol. Update Phoenix and this integration."
+    },
+    "abort": {
+      "already_configured": "This installation is already configured.",
+      "reauth_successful": "Phoenix has been relinked.",
+      "reconfigure_successful": "Phoenix connection updated."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "connected": {
+        "name": "Connection"
+      }
+    },
+    "sensor": {
+      "connection_status": {
+        "name": "Connection status",
+        "state": {
+          "connected": "Connected",
+          "connecting": "Connecting",
+          "disconnected": "Disconnected",
+          "authentication_required": "Relink required",
+          "protocol_error": "Protocol error"
+        }
+      }
+    }
+  }
+}
