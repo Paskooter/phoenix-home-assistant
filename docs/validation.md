@@ -31,3 +31,5 @@ The new cross-repository check installs the Jev fork 0.2.0b1 in the same real is
 Observed Jev transcript-to-result latency: **33.4 ms** (HA 2026.8.1) and **32.8 ms** (HA 2026.9.4), **with the classifier network mocked**. The built-in transcript-to-result check observed 12.6–262.2 ms on 2026.8.1 and 9.8–135.5 ms on 2026.9.4. These are isolated local timings, not provider or hardware latency.
 
 Jev's own suite passed 139 tests on both versions. OpenRouter inference with a real owner's key and Grok subscription entitlement remain owner installation checks. Existing beta 0.1.0b3 physical evidence above applies to the built-in agent, not Jev/Grok. Beta 0.1.0b4 changes HA-side options only; the deployed Phoenix server and robot software are unchanged. No new server deployment or robot OTA is required by this change.
+
+The exact beta 0.1.0b4 phoenix.zip and Jev 0.2.0b1 jev_assist.zip archives also passed fresh extraction into a disposable HA config with source-path checks, synthetic provider key validation, real TLS linking, agent options, unload/reload and removal. No device actions were issued during the archive-install check.
