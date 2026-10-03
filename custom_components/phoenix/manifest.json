@@ -9,5 +9,5 @@
   "iot_class": "cloud_push",
   "issue_tracker": "https://github.com/Paskooter/phoenix-home-assistant/issues",
   "requirements": [],
-  "version": "0.1.0b1"
+  "version": "0.1.0b2"
 }

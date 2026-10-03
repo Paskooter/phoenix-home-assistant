@@ -2,16 +2,16 @@
 
 Let Jibo control devices exposed to Home Assistant Assist. This beta uses Home Assistant's built-in conversation agent, with no LLM requirement. Home Assistant connects **outbound over authenticated TLS WebSocket** to Phoenix. No port forwarding, public Home Assistant URL, or paid remote-access subscription is needed.
 
-Beta: **0.1.0b1**. Home Assistant **2026.8.1 or newer**; English commands. Compatibility tests run against 2026.8.1 and 2026.9.4. A physical light and native BE 13.0.2 spoken cloud reply have been checked. A fresh microphone-to-home turn remains pending owner installation; see [validation evidence](docs/validation.md).
+Beta: **0.1.0b2**. Home Assistant **2026.8.1 or newer**; English commands. Compatibility tests run against 2026.8.1 and 2026.9.4. A physical light and native BE 13.0.2 spoken cloud reply have been checked. A fresh microphone-to-home turn remains pending owner installation; see [validation evidence](docs/validation.md).
 
 ## Install through HACS
 
 1. In HACS, open the menu → **Custom repositories**.
 2. Add `https://github.com/Paskooter/phoenix-home-assistant`, category **Integration**.
-3. Find **Phoenix**, select **Download**, enable beta/prerelease versions when choosing a version, and select **0.1.0b1**.
+3. Find **Phoenix**, select **Download**, enable beta/prerelease versions when choosing a version, and select **0.1.0b2**.
 4. Restart Home Assistant. Refresh the browser if Phoenix does not appear in the integration picker.
 
-For a manual installation, download `phoenix.zip` from the [beta release](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.1.0b1). Extract its `phoenix` directory into your Home Assistant configuration's `custom_components/` directory. The resulting path must be `custom_components/phoenix/manifest.json`. Restart Home Assistant. Do not copy the repository's entire root into `custom_components/phoenix`.
+For a manual installation, download `phoenix.zip` from the [beta release](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.1.0b2). Create `custom_components/phoenix/` inside your Home Assistant configuration directory, then extract the archive's files directly into it. The resulting path must be `custom_components/phoenix/manifest.json`. Restart Home Assistant. Do not copy the repository's entire root into `custom_components/phoenix`.
 
 ## Link your household
 

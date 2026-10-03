@@ -1,4 +1,4 @@
-# Beta validation — 0.1.0b1
+# Beta validation — 0.1.0b2
 
 Validated with Python 3.14.8, Node 22.22.0, Home Assistant 2026.8.1 and 2026.9.4, and connector protocol 1. Home Assistant dependencies match the conversation manifest for each version; the configured agent is explicitly the built-in `conversation.HOME_ASSISTANT_AGENT`. No LLM or configurable default agent is used.
 

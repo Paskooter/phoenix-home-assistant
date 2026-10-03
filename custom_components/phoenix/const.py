@@ -1,7 +1,7 @@
 """Phoenix connector constants."""
 
 DOMAIN = "phoenix"
-VERSION = "0.1.0b1"
+VERSION = "0.1.0b2"
 PROTOCOL_VERSION = 1
 DEFAULT_URL = "https://jibo.io"
 CONF_PHOENIX_URL = "phoenix_url"
