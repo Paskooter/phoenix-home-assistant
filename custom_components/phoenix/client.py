@@ -11,6 +11,9 @@ from uuid import UUID
 
 from aiohttp import (
     ClientError,
+    ClientHandlerType,
+    ClientRequest,
+    ClientResponse,
     ClientSession,
     ClientWebSocketResponse,
     ClientWSTimeout,
@@ -27,6 +30,15 @@ from homeassistant.helpers.storage import Store
 from .const import MAX_COMMANDS, MAX_FRAME_BYTES, MAX_SEEN_REQUESTS, PROTOCOL_VERSION, VERSION
 
 _LOGGER = logging.getLogger(__name__)
+
+
+async def reject_redirects(request: ClientRequest, handler: ClientHandlerType) -> ClientResponse:
+    """Keep the authenticated WebSocket on the configured TLS origin."""
+    response = await handler(request)
+    if response.status in (301, 302, 303, 307, 308):
+        response.close()
+        raise ClientError("Phoenix connector redirects are not allowed")
+    return response
 
 
 def error_result(code: str, outcome: str = "error") -> dict[str, Any]:

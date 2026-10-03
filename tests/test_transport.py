@@ -10,6 +10,7 @@ from uuid import uuid4
 
 import aiohttp
 import pytest
+from aiohttp import web
 from homeassistant.config_entries import ConfigEntry
 
 from custom_components.phoenix import diagnostics
@@ -99,6 +100,11 @@ async def linked_entry(hass, backend, monkeypatch):
     data, session = backend
     monkeypatch.setattr("custom_components.phoenix.config_flow.async_get_clientsession", lambda hass: session)
     monkeypatch.setattr("custom_components.phoenix.async_get_clientsession", lambda hass: session)
+
+    def create_session(hass, *, auto_cleanup, **kwargs):
+        return aiohttp.ClientSession(connector=session.connector, connector_owner=False, **kwargs)
+
+    monkeypatch.setattr("custom_components.phoenix.async_create_clientsession", create_session)
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": "user"}, data={"phoenix_url": data["url"], "connection_code": data["code"]}
     )
@@ -106,6 +112,55 @@ async def linked_entry(hass, backend, monkeypatch):
     entry = result["result"]
     await wait_for(lambda: hasattr(entry, "runtime_data") and entry.runtime_data.client.state == "connected")
     return entry
+
+
+async def test_websocket_redirect_never_contacts_insecure_target(hass, backend, monkeypatch):
+    """A real TLS redirect cannot send credentials or commands over plain HTTP."""
+    entry = await linked_entry(hass, backend, monkeypatch)
+    owned_session = entry.runtime_data.client.session
+    await hass.config_entries.async_unload(entry.entry_id)
+    assert owned_session.closed
+    reached = []
+
+    async def insecure_target(request):
+        reached.append(request.headers.get("Authorization"))
+        return web.Response(text="must not be contacted")
+
+    target = web.Application()
+    target.router.add_get("/redirect-target", insecure_target)
+    target_runner = web.AppRunner(target)
+    await target_runner.setup()
+    target_site = web.TCPSite(target_runner, "127.0.0.1", 0)
+    await target_site.start()
+    port = target_site._server.sockets[0].getsockname()[1]
+
+    async def redirect(request):
+        raise web.HTTPFound(location=f"http://127.0.0.1:{port}/redirect-target")
+
+    origin = web.Application()
+    origin.router.add_get("/api/home-assistant/connect", redirect)
+    origin_runner = web.AppRunner(origin)
+    await origin_runner.setup()
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(backend[0]["certificate"], Path(backend[0]["certificate"]).with_name("tls.key"))
+    origin_site = web.TCPSite(origin_runner, "127.0.0.1", 0, ssl_context=context)
+    await origin_site.start()
+    origin_port = origin_site._server.sockets[0].getsockname()[1]
+    hass.config_entries.async_update_entry(
+        entry, data={**entry.data, "phoenix_url": f"https://127.0.0.1:{origin_port}"}
+    )
+    try:
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await wait_for(lambda: entry.runtime_data.client.last_error == "cannot_connect")
+        assert entry.runtime_data.client.state == "disconnected"
+        assert reached == []
+        assert entry.runtime_data.client.commands == {}
+        owned_session = entry.runtime_data.client.session
+        await hass.config_entries.async_unload(entry.entry_id)
+        assert owned_session.closed
+    finally:
+        await origin_runner.cleanup()
+        await target_runner.cleanup()
 
 
 async def test_real_tls_config_flow_voice_result_reload_unload_remove(hass, backend, monkeypatch):

@@ -7,11 +7,11 @@ from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.aiohttp_client import async_create_clientsession, async_get_clientsession
 from homeassistant.helpers.storage import Store
 
 from .api import revoke
-from .client import PhoenixClient
+from .client import PhoenixClient, reject_redirects
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -27,9 +27,11 @@ class PhoenixData:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry[PhoenixData]) -> bool:
     """Create entities and a lifecycle-bound reconnect task."""
-    client = PhoenixClient(
-        hass, entry, async_get_clientsession(hass), auth_failed=lambda: entry.async_start_reauth(hass)
-    )
+    # ws_connect follows redirects by default. Own a session that rejects them,
+    # sharing HA's TLS connector without changing other integrations' sessions.
+    session = async_create_clientsession(hass, auto_cleanup=False, middlewares=(reject_redirects,))
+    entry.async_on_unload(session.detach)
+    client = PhoenixClient(hass, entry, session, auth_failed=lambda: entry.async_start_reauth(hass))
     entry.runtime_data = PhoenixData(client)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_create_background_task(hass, client.async_run(), "Phoenix connector")

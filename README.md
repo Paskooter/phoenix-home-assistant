@@ -2,16 +2,16 @@
 
 Let Jibo control devices exposed to Home Assistant Assist. This beta uses Home Assistant's built-in conversation agent, with no LLM requirement. Home Assistant connects **outbound over authenticated TLS WebSocket** to Phoenix. No port forwarding, public Home Assistant URL, or paid remote-access subscription is needed.
 
-Beta: **0.1.0b2**. Home Assistant **2026.8.1 or newer**; English commands. Compatibility tests run against 2026.8.1 and 2026.9.4. A physical light and native BE 13.0.2 spoken cloud reply have been checked. A fresh microphone-to-home turn remains pending owner installation; see [validation evidence](docs/validation.md).
+Beta: **0.1.0b3**. Home Assistant **2026.8.1 or newer**; English commands. Compatibility tests run against 2026.8.1 and 2026.9.4. A physical light and native BE 13.0.2 spoken cloud reply have been checked. A fresh microphone-to-home turn remains pending owner installation; see [validation evidence](docs/validation.md).
 
 ## Install through HACS
 
 1. In HACS, open the menu → **Custom repositories**.
 2. Add `https://github.com/Paskooter/phoenix-home-assistant`, category **Integration**.
-3. Find **Phoenix**, select **Download**, enable beta/prerelease versions when choosing a version, and select **0.1.0b2**.
+3. Find **Phoenix**, select **Download**, enable beta/prerelease versions when choosing a version, and select **0.1.0b3**.
 4. Restart Home Assistant. Refresh the browser if Phoenix does not appear in the integration picker.
 
-For a manual installation, download `phoenix.zip` from the [beta release](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.1.0b2). Create `custom_components/phoenix/` inside your Home Assistant configuration directory, then extract the archive's files directly into it. The resulting path must be `custom_components/phoenix/manifest.json`. Restart Home Assistant. Do not copy the repository's entire root into `custom_components/phoenix`.
+For a manual installation, download `phoenix.zip` from the [beta release](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.1.0b3). Create `custom_components/phoenix/` inside your Home Assistant configuration directory, then extract the archive's files directly into it. The resulting path must be `custom_components/phoenix/manifest.json`. Restart Home Assistant. Do not copy the repository's entire root into `custom_components/phoenix`.
 
 ## Link your household
 
@@ -56,7 +56,7 @@ For built-in light and switch on/off intents, the connector waits for Home Assis
 ## Troubleshooting
 
 - **Invalid code:** generate a fresh code. If a linking response was lost, disconnect the orphan installation in Phoenix first. The credential is delivered only once.
-- **Disconnected:** check Home Assistant's Internet access, DNS, TLS trust, and the Phoenix URL. For self-hosted servers, check the dedicated WebSocket proxy location. Reconnection takes up to about a minute after repeated failures.
+- **Disconnected:** check Home Assistant's Internet access, DNS, TLS trust, and the Phoenix URL. For self-hosted servers, check the dedicated WebSocket proxy location. Connector redirects are rejected; configure the final HTTPS origin directly. Reconnection takes up to about a minute after repeated failures.
 - **Relink required:** the credential was revoked or the selected robot's ownership changed. Disconnect the old installation in Phoenix, generate a new code, and complete Home Assistant's reauthentication prompt.
 - **Connection replaced:** the same installation credential was used by another running instance. Stop the duplicate and reload, or disconnect and relink. Do not run two HA copies with a cloned Phoenix config entry.
 - **Command not understood:** expose the target to Assist, check its name/alias/area and available features, and try the text in Home Assistant's built-in Assist agent. Then try the explicit invocation. Custom agents and LLMs are not selected by this integration.
