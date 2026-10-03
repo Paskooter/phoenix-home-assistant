@@ -2,7 +2,7 @@
 
 Let Jibo control devices exposed to Home Assistant Assist. This beta uses Home Assistant's built-in conversation agent, with no LLM requirement. Home Assistant connects **outbound over authenticated TLS WebSocket** to Phoenix. No port forwarding, public Home Assistant URL, or paid remote-access subscription is needed.
 
-Beta: **0.1.0b3**. Home Assistant **2026.8.1 or newer**; English commands. Compatibility tests run against 2026.8.1 and 2026.9.4. A physical light and native BE 13.0.2 spoken cloud reply have been checked. A fresh microphone-to-home turn remains pending owner installation; see [validation evidence](docs/validation.md).
+Beta: **0.1.0b3**. Home Assistant **2026.8.1 or newer**; English commands. Compatibility tests run against 2026.8.1 and 2026.9.4. An owner-installed HA 2026.8.1 connector controlled one approved physical light from a BE 13.0.2 Jibo and completed native spoken replies through production, using supplied ASR text. Direct and explicit on/off commands passed. A fresh human-spoken wake phrase and microphone check remains pending; see [validation evidence](docs/validation.md).
 
 ## Install through HACS
 
