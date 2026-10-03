@@ -27,7 +27,7 @@ from homeassistant.const import __version__ as HA_VERSION
 from homeassistant.core import Context, HomeAssistant, callback
 from homeassistant.helpers.storage import Store
 
-from .const import MAX_COMMANDS, MAX_FRAME_BYTES, MAX_SEEN_REQUESTS, PROTOCOL_VERSION, VERSION
+from .const import CONF_CONVERSATION_AGENT, MAX_COMMANDS, MAX_FRAME_BYTES, MAX_SEEN_REQUESTS, PROTOCOL_VERSION, VERSION
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -306,6 +306,17 @@ class PhoenixClient:
             remaining = self._remaining(deadline)
             if remaining <= 0:
                 result = error_result("expired", "expired")
+            elif (
+                conversation.async_get_agent(
+                    self.hass, self.entry.options.get(CONF_CONVERSATION_AGENT, conversation.HOME_ASSISTANT_AGENT)
+                )
+                is None
+            ):
+                # A removed agent must never silently switch to another one.
+                result = {
+                    **error_result("agent_unavailable"),
+                    "speech": "The selected Assist agent is unavailable. Check Phoenix settings in Home Assistant.",
+                }
             else:
                 started = True
                 async with asyncio.timeout(remaining):
@@ -315,7 +326,7 @@ class PhoenixClient:
                         conversation_id=None,
                         context=Context(),
                         language="en",
-                        agent_id=conversation.HOME_ASSISTANT_AGENT,
+                        agent_id=self.entry.options.get(CONF_CONVERSATION_AGENT, conversation.HOME_ASSISTANT_AGENT),
                     )
                     result = conversation_result(answer.as_dict(), self.hass)
                     await self._confirm_on_off(answer)

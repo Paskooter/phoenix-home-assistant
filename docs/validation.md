@@ -21,3 +21,13 @@ Measured native-turn-to-spoken-reply completion was **5506ms / 4157ms** for dire
 A fresh human-spoken wake phrase and microphone recognition remain unverified; the owner deferred that check. Other firmware versions are unverified. The earlier isolated pilot timings measure different parts of the chain and must not be added to the native speech timing or represented as measured microphone-to-result latency.
 
 Physical captures, household identifiers, addresses, credentials, and operator notes remain outside both repositories. This file contains only sanitized outcomes.
+
+## Optional Jev agent: beta 0.1.0b4
+
+Observed on 2026-10-03: **20 tests passed** on each of Home Assistant 2026.8.1 and 2026.9.4, with Ruff lint/format checks passing. This includes all prior TLS, authorization, route, reconnect, deadline, deduplication, revocation, unload/restart and removal cases plus four agent-selection checks.
+
+The new cross-repository check installs the Jev fork 0.2.0b1 in the same real isolated HA instance and uses its real TypeSafe SDK with mocked OpenRouter HTTP transport. A native Gateway text turn crosses Phoenix's real TLS broker, reaches the selected Jev agent, changes the synthetic kitchen light, and returns a Jibo skill envelope. A second turn reaches an actual HA conversation entity with synthetic Grok speech; ESML escaping remains correct. Selecting an agent retains the owner credential and stops the old connector. Returning to the built-in agent works; removed agents and expired work do not execute. Reload does not replay either command.
+
+Observed Jev transcript-to-result latency: **33.4 ms** (HA 2026.8.1) and **32.8 ms** (HA 2026.9.4), **with the classifier network mocked**. The built-in transcript-to-result check observed 12.6–262.2 ms on 2026.8.1 and 9.8–135.5 ms on 2026.9.4. These are isolated local timings, not provider or hardware latency.
+
+Jev's own suite passed 139 tests on both versions. OpenRouter inference with a real owner's key and Grok subscription entitlement remain owner installation checks. Existing beta 0.1.0b3 physical evidence above applies to the built-in agent, not Jev/Grok. Beta 0.1.0b4 changes HA-side options only; the deployed Phoenix server and robot software are unchanged. No new server deployment or robot OTA is required by this change.

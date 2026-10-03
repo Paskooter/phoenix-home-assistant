@@ -2,16 +2,16 @@
 
 Let Jibo control devices exposed to Home Assistant Assist. This beta uses Home Assistant's built-in conversation agent, with no LLM requirement. Home Assistant connects **outbound over authenticated TLS WebSocket** to Phoenix. No port forwarding, public Home Assistant URL, or paid remote-access subscription is needed.
 
-Beta: **0.1.0b3**. Home Assistant **2026.8.1 or newer**; English commands. Compatibility tests run against 2026.8.1 and 2026.9.4. An owner-installed HA 2026.8.1 connector controlled one approved physical light from a BE 13.0.2 Jibo and completed native spoken replies through production, using supplied ASR text. Direct and explicit on/off commands passed. A fresh human-spoken wake phrase and microphone check remains pending; see [validation evidence](docs/validation.md).
+Beta: **0.1.0b4**. Home Assistant **2026.8.1 or newer**; English commands. Compatibility tests run against 2026.8.1 and 2026.9.4. The previous 0.1.0b3 owner-installed HA 2026.8.1 connector controlled one approved physical light from a BE 13.0.2 Jibo and completed native spoken replies through production, using supplied ASR text. Direct and explicit on/off commands passed. A fresh human-spoken wake phrase and microphone check remains pending; see [validation evidence](docs/validation.md).
 
 ## Install through HACS
 
 1. In HACS, open the menu → **Custom repositories**.
 2. Add `https://github.com/Paskooter/phoenix-home-assistant`, category **Integration**.
-3. Find **Phoenix**, select **Download**, enable beta/prerelease versions when choosing a version, and select **0.1.0b3**.
+3. Find **Phoenix**, select **Download**, enable beta/prerelease versions when choosing a version, and select **0.1.0b4**.
 4. Restart Home Assistant. Refresh the browser if Phoenix does not appear in the integration picker.
 
-For a manual installation, download `phoenix.zip` from the [beta release](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.1.0b3). Create `custom_components/phoenix/` inside your Home Assistant configuration directory, then extract the archive's files directly into it. The resulting path must be `custom_components/phoenix/manifest.json`. Restart Home Assistant. Do not copy the repository's entire root into `custom_components/phoenix`.
+For a manual installation, download `phoenix.zip` from the [beta release](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.1.0b4). Create `custom_components/phoenix/` inside your Home Assistant configuration directory, then extract the archive's files directly into it. The resulting path must be `custom_components/phoenix/manifest.json`. Restart Home Assistant. Do not copy the repository's entire root into `custom_components/phoenix`.
 
 ## Link your household
 
@@ -43,6 +43,14 @@ Home Assistant resolves names, aliases, areas, available features, and supported
 
 The first beta handles one command per turn. It does not translate every utterance into a home command. Volume, sleep, time, jokes, weather, cancellation, and answers inside active skills retain their existing Jibo routing. A new wake phrase starts a global turn. Existing Hue routing remains available on robots that have not opted in. There are no Home Assistant-to-Jibo controls in this release.
 
+## Optional Jev or another Assist agent
+
+Open **Settings → Devices & services → Phoenix → Configure**, choose an installed conversation agent, and save. The existing owner link is kept. The default remains **Home Assistant (built-in)**. A removed or renamed selected agent returns an unavailable error; it never silently switches to another agent.
+
+For OpenRouter-powered Jev with a Grok fallback, install [Paskooter/ha-conversation-jev](https://github.com/Paskooter/ha-conversation-jev) and follow its [owner setup guide](https://github.com/Paskooter/ha-conversation-jev/blob/main/docs/setup.md). Select **Jev Assist** in Phoenix's Configure form. Jev's provider key and Grok login are local HA settings. Jibo keeps its existing recognition and voice.
+
+The command phrase tests above describe Home Assistant's **built-in** agent. A custom agent has its own capabilities, provider data and latency. The existing 7.5-second command deadline still applies; slow model work can expire, and actions are not replayed.
+
 ## Connection and uncertain results
 
 The integration exposes a **Connection** binary sensor and **Connection status** sensor under its device's diagnostic entities. Status is also available in Phoenix. It reconnects automatically with bounded backoff after a network interruption.
@@ -59,7 +67,7 @@ For built-in light and switch on/off intents, the connector waits for Home Assis
 - **Disconnected:** check Home Assistant's Internet access, DNS, TLS trust, and the Phoenix URL. For self-hosted servers, check the dedicated WebSocket proxy location. Connector redirects are rejected; configure the final HTTPS origin directly. Reconnection takes up to about a minute after repeated failures.
 - **Relink required:** the credential was revoked or the selected robot's ownership changed. Disconnect the old installation in Phoenix, generate a new code, and complete Home Assistant's reauthentication prompt.
 - **Connection replaced:** the same installation credential was used by another running instance. Stop the duplicate and reload, or disconnect and relink. Do not run two HA copies with a cloned Phoenix config entry.
-- **Command not understood:** expose the target to Assist, check its name/alias/area and available features, and try the text in Home Assistant's built-in Assist agent. Then try the explicit invocation. Custom agents and LLMs are not selected by this integration.
+- **Command not understood:** expose the target to Assist, check its name/alias/area and available features, and try the text in Home Assistant's built-in Assist agent. Then try the explicit invocation. The built-in agent is selected by default. For Jev or another installed agent, open Phoenix → Configure and select it explicitly. Changing the default Assist pipeline does not change Jibo’s selection.
 - **Unsupported protocol:** update the server and integration to compatible releases. This beta uses connector protocol version 1.
 - **Request storage error:** fix Home Assistant's storage permissions or corruption, then reload. The connector fails closed when it cannot preserve request deduplication.
 

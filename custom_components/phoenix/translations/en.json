@@ -59,5 +59,19 @@
         }
       }
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Jibo conversation agent",
+        "description": "Home Assistant (built-in) is the default. Select Jev Assist or another installed agent to opt in. This affects only Jibo home commands and keeps your existing Phoenix link. Changing the default Assist pipeline does not change this setting.",
+        "data": {
+          "conversation_agent": "Conversation agent"
+        }
+      }
+    },
+    "error": {
+      "invalid_agent": "Choose an installed conversation agent."
+    }
   }
 }
