@@ -2,7 +2,9 @@
 
 Let Jibo control devices exposed to Home Assistant Assist. This beta uses Home Assistant's built-in conversation agent, with no LLM requirement. Home Assistant connects **outbound over authenticated TLS WebSocket** to Phoenix. No port forwarding, public Home Assistant URL, or paid remote-access subscription is needed.
 
-Published beta: **[0.2.0b1](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.2.0b1)**. Home Assistant **2026.8.1 or newer**; English commands. Compatibility tests use actual HA 2026.8.1 and 2026.9.4. Home control keeps Jibo's existing recognition and voice. Native announcements require **BE 13.1.0**; physical receiver acceptance is pending. The earlier owner-installed connector controlled one approved physical light from BE 13.0.2 with supplied ASR text. See [validation evidence](docs/validation.md) for measured results and remaining checks.
+Next beta candidate: **0.2.0b2**. Published beta: **[0.2.0b1](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.2.0b1)**. Home Assistant **2026.8.1 or newer**; English commands. Compatibility tests use actual HA 2026.8.1 and 2026.9.4. Home control keeps Jibo's existing recognition and voice. Native announcements require the corrected receiver in **BE 13.1.1**; physical receiver acceptance is pending. An approved regression on BE 13.0.2 confirmed one physical light's on/off states and native spoken replies through the owner's connector with supplied ASR text. Microphone recognition remains unverified. See [validation evidence](docs/validation.md) for measured results and remaining checks.
+
+Beta 0.2.0b2 corrects the minimum firmware shown by announcement diagnostics and errors after a BE 13.1.0 receiver initialization failure. Each robot's **Announcement status** diagnostic sensor keeps local readiness and the minimum receiver version visible while the Announcement entity is unavailable. The published 0.2.0b1 archive stays unchanged and uses the same protocol as 0.2.0b2. An existing 0.2.0b1 installation remains compatible with BE 13.1.1 and needs no immediate HA reinstall; its older diagnostic label can still show 13.1.0 and unavailable entities can omit the guidance.
 
 ## Install through HACS
 
@@ -61,7 +63,7 @@ Matching ignores case, whitespace, and final punctuation. It does not infer simi
 
 ## Announcements from Home Assistant
 
-Announcements are off by default. Enable **Allow announcements** for the linked installation in the [Phoenix console](https://jibo.io/app#/home-assistant). The robot needs the native receiver in **BE 13.1.0**. Older robots can keep using home control, rooms, questions, and routines; their Announcement entity reports `firmware_required`.
+Announcements are off by default. Enable **Allow announcements** for the linked installation in the [Phoenix console](https://jibo.io/app#/home-assistant). The robot needs the corrected native receiver in **BE 13.1.1**. The BE 13.1.0 receiver candidate failed initialization; BE 13.1.1 hardware acceptance is pending. Home control, rooms, questions, and routines do not require the announcement receiver. In 0.2.0b2, the **Announcement status** sensor reports `firmware_required` until receiver support is available, even while the Announcement entity is unavailable.
 
 Open **Phoenix → Configure** to choose optional quiet hours. Quiet hours use HA's time zone and can cross midnight. Announcements use Jibo's current volume. Per-announcement volume is not supported by the tested native speech engine.
 
@@ -87,7 +89,7 @@ The command phrase tests above describe Home Assistant's **built-in** agent. A c
 
 ## Connection and uncertain results
 
-The integration exposes **Connection** and **Connection status** diagnostics. Each Jibo device also exposes **Robot connection**, **Last response**, **Response latency**, and **Conversation agent**. These omit utterances and household identifiers. Robot connection describes the verified Phoenix path; it is not independent LAN or power monitoring. Status is also available in Phoenix. The connector reconnects automatically with bounded backoff after a network interruption.
+The integration exposes **Connection** and **Connection status** diagnostics. Each Jibo device also exposes **Robot connection**, **Announcement status**, **Last response**, **Response latency**, and **Conversation agent**. These omit utterances and household identifiers. Robot connection describes the verified Phoenix path; it is not independent LAN or power monitoring. Status is also available in Phoenix. The connector reconnects automatically with bounded backoff after a network interruption.
 
 Actions are never queued for a reconnect or automatically retried. A request that expires before execution is discarded. Request IDs are remembered before executing and persisted without command text. Duplicate work after reconnect or restart is not executed again.
 
@@ -106,7 +108,7 @@ For built-in light and switch on/off intents, the connector waits for Home Assis
 - **Request storage error:** fix Home Assistant's storage permissions or corruption, then reload. The connector fails closed when it cannot preserve request deduplication.
 - **Room not configured:** assign the Jibo device to an HA area, or name the target explicitly.
 - **No follow-up context:** name the device again. Target memory is deliberately short and clears after interruptions or inconclusive results.
-- **Announcement unavailable:** check the entity's `unavailable_reason`, installation permission, robot connection, and BE 13.1.0 receiver. Quiet-hours rejection is local and never queues a later announcement.
+- **Announcement unavailable:** check the robot's **Announcement status** sensor, installation permission, robot connection, and corrected BE 13.1.1 receiver. Quiet-hours rejection is local and never queues a later announcement.
 
 Diagnostics contain connection state, protocol/version, error code, and task counts. They omit credentials, server URLs, installation IDs, robot IDs, and utterances. Do not share Home Assistant's `.storage/core.config_entries` or Phoenix's account store: these contain private connection information.
 
@@ -124,7 +126,7 @@ The six requested additions are implemented in this beta. Its release evidence d
 
 | Addition | Owner experience |
 | --- | --- |
-| Jibo announcements from automations | Native announcement entities, installation opt-in and local quiet hours, using Jibo's current volume. Requires BE 13.1.0; physical receiver acceptance is pending. |
+| Jibo announcements from automations | Native announcement entities, installation opt-in and local quiet hours, using Jibo's current volume. Requires corrected BE 13.1.1; physical receiver acceptance is pending. |
 | Robot room context | Assign each Jibo to a Home Assistant area so “turn on the lights” can refer to that room. |
 | Questions about the home | Ask about the states of Assist-exposed devices, using a route that reads state without changing devices. |
 | Brief follow-up context | Refer to the previous home command with phrases such as “make it dimmer”; keep context separate for each robot and expire it after a short period. |

@@ -1,0 +1,19 @@
+{
+  "entity": {
+    "sensor": {
+      "announcement_status": {
+        "default": "mdi:bullhorn-outline",
+        "state": {
+          "disconnected": "mdi:lan-disconnect",
+          "unsupported_server": "mdi:server-off",
+          "permission_required": "mdi:lock-outline",
+          "firmware_required": "mdi:update",
+          "quiet_hours": "mdi:weather-night",
+          "offline": "mdi:lan-disconnect",
+          "busy": "mdi:timer-sand",
+          "ready": "mdi:bullhorn-outline"
+        }
+      }
+    }
+  }
+}

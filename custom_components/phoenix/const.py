@@ -1,7 +1,8 @@
 """Phoenix connector constants."""
 
 DOMAIN = "phoenix"
-VERSION = "0.2.0b1"
+VERSION = "0.2.0b2"
+MIN_ANNOUNCEMENT_FIRMWARE = "13.1.1"
 PROTOCOL_VERSION = 1
 CAPABILITIES = ("robot_roster", "robot_action", "room_context", "state_queries", "follow_up", "routine_shortcuts")
 DEFAULT_URL = "https://jibo.io"

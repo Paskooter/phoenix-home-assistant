@@ -61,6 +61,19 @@
           "protocol_error": "Protocol error"
         }
       },
+      "announcement_status": {
+        "name": "Announcement status",
+        "state": {
+          "disconnected": "Disconnected",
+          "unsupported_server": "Server support required",
+          "permission_required": "Permission required",
+          "firmware_required": "Receiver firmware required",
+          "quiet_hours": "Quiet hours",
+          "offline": "Robot offline",
+          "busy": "Robot busy",
+          "ready": "Ready"
+        }
+      },
       "last_response": {
         "name": "Last response",
         "state": {
@@ -112,7 +125,7 @@
     "unsupported_title": {"message": "Jibo announcements accept a message without a title."},
     "disconnected": {"message": "Phoenix is disconnected. This announcement was not queued."},
     "unsupported_announcements": {"message": "This Phoenix server does not support Jibo announcements."},
-    "unsupported_robot_announcements": {"message": "Jibo announcements need the native receiver in BE 13.1.0 or later. Room context, home commands, and questions can still use this connection."},
+    "unsupported_robot_announcements": {"message": "Jibo announcements need the native receiver in BE 13.1.1 or later. Room context, home commands, and questions can still use this connection."},
     "permission_denied": {"message": "Enable announcements for this installation in the Phoenix console."},
     "quiet_hours": {"message": "Quiet hours are active. This announcement was not sent or queued."},
     "robot_offline": {"message": "Jibo is offline. This announcement was not queued."},

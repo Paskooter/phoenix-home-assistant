@@ -61,8 +61,15 @@ let nativeAdapter;
 let guard;
 let verifyGate;
 let verifyWaiting = 0;
+let statusReads = 0;
+let brokerTimerPaused = false;
+const rosterStatusOverrides = new Map();
 const robotAdapter = {
-  status: identity => nativeAdapter ? nativeAdapter.status(identity) : { online: false, busy: false },
+  status: identity => {
+    statusReads++;
+    return rosterStatusOverrides.has(identity.id) ? { ...rosterStatusOverrides.get(identity.id) }
+      : nativeAdapter ? nativeAdapter.status(identity) : { online: false, busy: false };
+  },
   announce: input => nativeAdapter.announce(input),
 };
 const account = createAccountService({ store, homeAssistantOptions: { robotAdapter } });
@@ -231,9 +238,34 @@ const edge = https.createServer({ key: readFileSync(key), cert: readFileSync(cer
   try {
     if (req.url === '/test/state') {
       return json(res, { dispatches, cancellations, authorization_requests: authorizationRequests,
+        status_reads: statusReads, broker_timer_paused: brokerTimerPaused,
         server_frames: serverFrames, client_frames: clientFrames,
         controls: robots.map(robot => ({ robot: robot.friendlyId, ...controls.get(robot._id) })),
         pending: account.homeAssistant.pending.size, held: [...holds.keys()], verify_waiting: verifyWaiting });
+    }
+    if (req.url === '/test/roster-status') {
+      const value = await body(req);
+      const robot = robots.find(item => item.friendlyId === value.robot);
+      const fields = ['online', 'busy', 'announcements_supported'];
+      if (!robot || Object.keys(value).length !== 4 || !fields.every(field => typeof value[field] === 'boolean')) {
+        return json(res, { error: 'invalid_fixture_roster_status' }, 400);
+      }
+      rosterStatusOverrides.set(robot._id, Object.fromEntries(fields.map(field => [field, value[field]])));
+      await account.homeAssistant.broadcastRoster();
+      return json(res, {});
+    }
+    if (req.url === '/test/broker-timer') {
+      const value = await body(req);
+      if (Object.keys(value).length !== 1 || typeof value.pause !== 'boolean') {
+        return json(res, { error: 'invalid_fixture_timer' }, 400);
+      }
+      if (value.pause && !brokerTimerPaused) {
+        clearInterval(account.homeAssistant.timer); brokerTimerPaused = true;
+      } else if (!value.pause && brokerTimerPaused) {
+        for (const socket of account.homeAssistant.wss.clients) socket.ping();
+        account.homeAssistant.start(); brokerTimerPaused = false;
+      }
+      return json(res, { paused: brokerTimerPaused });
     }
     if (req.url === '/test/verify-hold') {
       const value = await body(req);

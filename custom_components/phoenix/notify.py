@@ -4,7 +4,7 @@ from homeassistant.components.notify import NotifyEntity
 from homeassistant.core import callback
 from homeassistant.exceptions import ServiceValidationError
 
-from .const import DOMAIN
+from .const import DOMAIN, MIN_ANNOUNCEMENT_FIRMWARE
 from .entity import PhoenixRobotEntity
 
 
@@ -55,7 +55,7 @@ class PhoenixAnnouncement(PhoenixRobotEntity, NotifyEntity):
             reason = "offline"
         else:
             reason = None
-        return {"unavailable_reason": reason, "minimum_firmware": "13.1.0"}
+        return {"unavailable_reason": reason, "minimum_firmware": MIN_ANNOUNCEMENT_FIRMWARE}
 
     async def async_send_message(self, message: str, title: str | None = None) -> None:
         if title:

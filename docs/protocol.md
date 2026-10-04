@@ -43,7 +43,7 @@ The server sends roster snapshots after negotiation:
 {"v":1,"session_id":"<uuid>","type":"roster","robots":[{"robot_id":"<binding-uuid>","name":"Example Jibo","online":true,"busy":false,"announcements_allowed":false,"announcements_supported":false}]}
 ```
 
-HA registers one device per opaque binding, preserving its local area across reloads. Names stay in the owner's device registry. Optional `announcements_supported` defaults to false and describes native receiver support independently of ordinary home voice features. A missing receiver must not disable room context, commands, queries, routines, or follow-ups. Announcements require BE 13.1.0 or later and explicit owner permission.
+HA registers one device per opaque binding, preserving its local area across reloads. Names stay in the owner's device registry. Optional `announcements_supported` defaults to false and describes native receiver support independently of ordinary home voice features. A missing receiver must not disable room context, commands, queries, routines, or follow-ups. Announcements require the corrected receiver in BE 13.1.1 or later and explicit owner permission. Integration 0.2.0b2 corrects the minimum-firmware guidance and exposes a per-robot Announcement status diagnostic sensor even while native notify is unavailable. It reads cached local conditions and does not confirm delivery. Protocol 1 and its capabilities are unchanged, so an installed 0.2.0b1 connector remains compatible with the corrected receiver.
 
 HA sends bounded preferences only after negotiation:
 

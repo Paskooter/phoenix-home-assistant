@@ -21,7 +21,7 @@ from homeassistant.components import conversation
 from homeassistant.components.homeassistant import exposed_entities
 from homeassistant.components.light import ColorMode
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
-from homeassistant.const import UnitOfTemperature
+from homeassistant.const import EntityCategory, UnitOfTemperature
 from homeassistant.const import __version__ as HA_VERSION
 from homeassistant.core import Context
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
@@ -143,6 +143,91 @@ async def owner_permission(backend, entry, enabled, *, stranger=False):
     if not stranger:
         await wait_for(
             lambda: all(item.announcements_allowed is enabled for item in entry.runtime_data.client.robots.values())
+        )
+
+
+def announcement_role(hass, entry, robot_id, role="announcement_status"):
+    robot = entry.runtime_data.client.robots[robot_id]
+    rows = [
+        row
+        for row in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+        if row.translation_key == role and row.device_id == robot.device_id
+    ]
+    assert len(rows) == 1
+    row = rows[0]
+    assert row.unique_id == f"{entry.data['installation_id']}_{robot_id}_{role}"
+    return row
+
+
+async def announcement_status(hass, entry, robot_id, expected, *, notify_available, seconds=6):
+    await wait_for(
+        lambda: (
+            len(
+                [
+                    row
+                    for row in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+                    if row.translation_key in {"announcement_status", "announcement"}
+                    and row.device_id == entry.runtime_data.client.robots[robot_id].device_id
+                ]
+            )
+            == 2
+        ),
+        seconds=seconds,
+    )
+    row = announcement_role(hass, entry, robot_id)
+    native = announcement_role(hass, entry, robot_id, "announcement")
+    await wait_for(
+        lambda: (
+            (state := hass.states.get(row.entity_id)) is not None
+            and state.state == expected
+            and (notify := hass.states.get(native.entity_id)) is not None
+            and (notify.state != "unavailable") == notify_available
+        ),
+        seconds=seconds,
+    )
+    state = hass.states.get(row.entity_id)
+    assert row.entity_category == EntityCategory.DIAGNOSTIC
+    assert row.entity_id.startswith("sensor.")
+    assert state.attributes["minimum_firmware"] == "13.1.1"
+    assert state.attributes["device_class"] == "enum"
+    assert expected in state.attributes["options"]
+    if notify_available:
+        assert hass.states.get(native.entity_id).attributes["minimum_firmware"] == "13.1.1"
+    return state
+
+
+async def announcement_timers(hass, entry):
+    """Inspect real HA interval handles without invoking or replacing callbacks."""
+    async with asyncio.timeout(8):
+        while True:
+            tracks = []
+            for handle in tuple(hass.loop._scheduled):
+                if handle.cancelled():
+                    continue
+                track = getattr(handle._callback, "__self__", None)
+                entity = getattr(getattr(track, "action", None), "__self__", None)
+                if (
+                    entity is not None
+                    and entity.__class__.__module__ == "custom_components.phoenix.sensor"
+                    and entity.translation_key == "announcement_status"
+                    and entity.client.entry.entry_id == entry.entry_id
+                ):
+                    assert entity.client is entry.runtime_data.client, "Old sensor interval survived reload"
+                    assert track.seconds == 30
+                    assert not track._timer_handle.cancelled()
+                    tracks.append(track)
+            assert len(tracks) <= 2, "Status intervals accumulated across reload"
+            if len(tracks) == 2:
+                return tracks
+            await asyncio.sleep(0.02)
+
+
+def assert_announcement_timers_removed(hass, tracks):
+    for track in tracks:
+        assert track._timer_handle.cancelled()
+        assert not any(
+            not handle.cancelled() and getattr(handle._callback, "__self__", None) is track
+            for handle in tuple(hass.loop._scheduled)
         )
 
 
@@ -959,6 +1044,223 @@ async def test_native_notify_entity_and_quiet_hours_never_dispatch(hass, next_ba
             "notify", "send_message", {"entity_id": notify_entities[0], "message": "Must stay quiet."}, blocking=True
         )
     assert len((await snapshot(next_backend))["dispatches"]) == 1
+
+
+async def test_announcement_status_remains_visible_while_notify_is_unavailable(hass, next_backend, monkeypatch):
+    assert await async_setup_component(hass, "conversation", {})
+    entry = await next_entry(hass, next_backend, monkeypatch)
+    robot_id = robot_context(entry).robot_id
+    fixture_robot = next_backend[0]["robots"][0]["friendly_id"]
+    await control(
+        next_backend,
+        "/test/roster-status",
+        {"robot": fixture_robot, "online": True, "busy": False, "announcements_supported": False},
+    )
+    await owner_permission(next_backend, entry, True)
+    await announcement_status(hass, entry, robot_id, "firmware_required", notify_available=False)
+    with pytest.raises(ServiceValidationError) as unsupported:
+        await entry.runtime_data.client.async_announce(robot_id, "Blocked invented receiver.")
+    assert unsupported.value.translation_key == "unsupported_robot_announcements"
+    await owner_permission(next_backend, entry, False)
+    await announcement_status(hass, entry, robot_id, "permission_required", notify_available=False)
+    with pytest.raises(ServiceValidationError) as disallowed:
+        await entry.runtime_data.client.async_announce(robot_id, "Blocked invented permission.")
+    assert disallowed.value.translation_key == "permission_denied"
+    await owner_permission(next_backend, entry, True)
+    await announcement_status(hass, entry, robot_id, "firmware_required", notify_available=False)
+    await control(
+        next_backend,
+        "/test/roster-status",
+        {"robot": fixture_robot, "online": True, "busy": True, "announcements_supported": True},
+    )
+    await announcement_status(hass, entry, robot_id, "busy", notify_available=True)
+    with pytest.raises(ServiceValidationError) as busy:
+        await entry.runtime_data.client.async_announce(robot_id, "Blocked invented busy receiver.")
+    assert busy.value.translation_key == "robot_busy"
+    await control(
+        next_backend,
+        "/test/roster-status",
+        {"robot": fixture_robot, "online": False, "busy": False, "announcements_supported": True},
+    )
+    await announcement_status(hass, entry, robot_id, "offline", notify_available=False)
+    await control(next_backend, "/test/disconnect")
+    await announcement_status(hass, entry, robot_id, "disconnected", notify_available=False)
+    await announcement_status(hass, entry, robot_id, "offline", notify_available=False, seconds=10)
+    captured = await snapshot(next_backend)
+    assert captured["dispatches"] == [] and captured["authorization_requests"] == 0
+    assert not any(frame["type"] == "robot_action" for frame in captured["client_frames"])
+    assert not entry.runtime_data.client.pending_actions
+    timers = await announcement_timers(hass, entry)
+    assert (await hass.config_entries.async_remove(entry.entry_id))["require_restart"] is False
+    assert_announcement_timers_removed(hass, timers)
+
+
+async def test_announcement_status_local_quiet_tick_and_interval_cleanup(hass, next_backend, monkeypatch):
+    assert await async_setup_component(hass, "conversation", {})
+    entry = await next_entry(hass, next_backend, monkeypatch)
+    await owner_permission(next_backend, entry, True)
+    await control(next_backend, "/test/broker-timer", {"pause": True})
+    try:
+        now = dt_util.now()
+        quiet_end = now + timedelta(seconds=5)
+        await options(
+            hass,
+            entry,
+            conversation_agent=conversation.HOME_ASSISTANT_AGENT,
+            quiet_hours_enabled=True,
+            quiet_hours_start=(now - timedelta(minutes=1)).strftime("%H:%M:%S"),
+            quiet_hours_end=quiet_end.strftime("%H:%M:%S"),
+        )
+        robot_ids = list(entry.runtime_data.client.robots)
+        initial = [
+            await announcement_status(hass, entry, robot_id, "quiet_hours", notify_available=True)
+            for robot_id in robot_ids
+        ]
+        old_timers = await announcement_timers(hass, entry)
+        before = await snapshot(next_backend)
+        assert before["broker_timer_paused"]
+        started = time.perf_counter()
+        while dt_util.now() <= quiet_end + timedelta(milliseconds=100):
+            await asyncio.sleep(0.05)
+        assert not entry.runtime_data.client._quiet_hours()
+        assert all(hass.states.get(state.entity_id).last_updated == state.last_updated for state in initial)
+        for robot_id in robot_ids:
+            await announcement_status(hass, entry, robot_id, "ready", notify_available=True, seconds=40)
+        after = await snapshot(next_backend)
+        assert after["broker_timer_paused"]
+        assert after["status_reads"] == before["status_reads"]
+        assert after["controls"] == before["controls"]
+        assert [frame for frame in after["server_frames"] if frame["type"] == "roster"] == [
+            frame for frame in before["server_frames"] if frame["type"] == "roster"
+        ]
+        assert after["dispatches"] == [] and after["authorization_requests"] == 0
+        assert not any(frame["type"] == "robot_action" for frame in after["client_frames"])
+        print(
+            json.dumps(
+                {
+                    "case": "real_local_status_quiet_boundary",
+                    "ha_version": HA_VERSION,
+                    "observed_seconds": round(time.perf_counter() - started, 3),
+                    "local_interval_seconds": 30,
+                    "broker_status_reads_before_and_after": before["status_reads"],
+                    "unchanged_roster_frames": True,
+                    "outgoing_actions": 0,
+                }
+            )
+        )
+    finally:
+        await control(next_backend, "/test/broker-timer", {"pause": False})
+    await options(hass, entry, conversation_agent=conversation.HOME_ASSISTANT_AGENT, quiet_hours_enabled=False)
+    assert_announcement_timers_removed(hass, old_timers)
+    replacement = await announcement_timers(hass, entry)
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert_announcement_timers_removed(hass, replacement)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await wait_for(lambda: len(entry.runtime_data.client.robots) == 2)
+    replacement = await announcement_timers(hass, entry)
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert_announcement_timers_removed(hass, replacement)
+
+
+@pytest.mark.parametrize("lost_state", ["unavailable", "missing", "unknown", "later_missing"])
+async def test_native_onoff_lost_state_is_uncertain_and_never_retried(hass, next_backend, monkeypatch, lost_state):
+    """A real exposed light loses its state after builtin service dispatch."""
+    assert await async_setup_component(hass, "conversation", {})
+    assert await async_setup_component(hass, "light", {})
+
+    class LostConfirmationLight(SyntheticLight):
+        async def async_turn_on(self, **kwargs):
+            if lost_state == "later_missing":
+                self.calls.append(("on", kwargs))
+                self.async_on_remove(
+                    self.hass.loop.call_later(0.1, self.hass.states.async_remove, self.entity_id).cancel
+                )
+                return  # Service acknowledged, state still off while confirmation starts.
+            await super().async_turn_on(**kwargs)
+            if lost_state == "missing":
+                self.hass.states.async_remove(self.entity_id)
+            else:
+                if lost_state == "unavailable":
+                    self._attr_available = False
+                else:
+                    self._attr_is_on = None
+                self.async_write_ha_state()
+
+    light = LostConfirmationLight("Confirmation Light", "invented-post-dispatch-confirmation")
+    await hass.data["light"].async_add_entities([light])
+    exposed_entities.async_expose_entity(hass, "conversation", light.entity_id, True)
+    original_converse = conversation.async_converse
+    answers = []
+
+    async def observe_converse(*args, **kwargs):
+        answer = await original_converse(*args, **kwargs)
+        answers.append(answer)
+        return answer
+
+    monkeypatch.setattr(conversation, "async_converse", observe_converse)
+    entry = await next_entry(hass, next_backend, monkeypatch)
+    request_id = str(uuid4())
+    deadline_seconds = 7.5  # Use the normal voice budget, including cold builtin preparation.
+    started = time.perf_counter()
+    await control(
+        next_backend,
+        "/test/inject-command",
+        {
+            "request_id": request_id,
+            "robot_id": robot_context(entry).robot_id,
+            "text": "turn on Confirmation Light",
+            "language": "en",
+            "deadline_ms": int(time.time() * 1000 + deadline_seconds * 1000),
+            "route": {"kind": "command"},
+        },
+    )
+
+    async def completed():
+        return any(
+            frame["type"] == "result" and frame["request_id"] == request_id
+            for frame in (await snapshot(next_backend))["client_frames"]
+        )
+
+    await wait_until(completed, seconds=deadline_seconds + 1)
+    elapsed = time.perf_counter() - started
+    captured = await snapshot(next_backend)
+    result = next(
+        frame["result"]
+        for frame in captured["client_frames"]
+        if frame["type"] == "result" and frame["request_id"] == request_id
+    )
+    state = hass.states.get(light.entity_id)
+    resolved = (
+        [target.id for target in answers[0].response.success_results if target.type == "entity"] if answers else []
+    )
+    print(
+        json.dumps(
+            {
+                "case": "native_onoff_post_dispatch_state_loss",
+                "ha_version": HA_VERSION,
+                "lost_state": lost_state,
+                "actual_builtin_success_ids": resolved,
+                "service_calls": len(light.calls),
+                "completed_builtin_answers": len(answers),
+                "elapsed_seconds": round(elapsed, 3),
+                "original_deadline_budget_seconds": deadline_seconds,
+                "actual_wire_result": result,
+            }
+        )
+    )
+    assert len(light.calls) == len(answers) == 1, result
+    assert answers[0].response.intent.intent_type == "HassTurnOn"
+    assert resolved == [light.entity_id]
+    assert (state is None) if lost_state.endswith("missing") else state.state == lost_state
+    assert result["outcome"] == "uncertain"
+    assert elapsed <= deadline_seconds + 1
+    if lost_state == "later_missing":
+        assert result["code"] == "confirmation_lost"
+        assert elapsed >= deadline_seconds - 0.25
+    assert not entry.runtime_data.client.contexts
+    await asyncio.sleep(0.1)
+    assert len(light.calls) == 1
+    assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 async def test_reverse_durable_dedup_expired_wrong_binding_and_busy(hass, next_backend, monkeypatch):
