@@ -81,6 +81,21 @@ To move servers or relink, disconnect the old installation in Phoenix, create a 
 
 To remove access immediately, choose **Disconnect** in the Phoenix console. Remove the Phoenix integration under **Settings → Devices & services**, then remove the HACS download and restart. HA also attempts server revocation during removal. If Phoenix was unreachable, follow the notification to disconnect it in the console. Device exposure in Assist remains your HA setting.
 
+## Next release: in development
+
+The following additions are being designed, implemented, and validated. They are not available in the current beta unless a release's supported-feature documentation says so. This list describes the Home Assistant integration's scope, without promising a release date.
+
+| Addition | Intended owner experience |
+| --- | --- |
+| Jibo announcements from automations | Send short messages in Jibo's familiar voice, with explicit permission, quiet hours, and announcement volume. Robot delivery and spoken completion must be proven on hardware. |
+| Robot room context | Assign each Jibo to a Home Assistant area so “turn on the lights” can refer to that room. |
+| Questions about the home | Ask about the states of Assist-exposed devices, using a route that reads state without changing devices. |
+| Brief follow-up context | Refer to the previous home command with phrases such as “make it dimmer”; keep context separate for each robot and expire it after a short period. |
+| Owner-selected routine phrases | Invoke explicitly selected scenes or scripts with a short phrase such as “start movie night,” while preserving ordinary Jibo commands. |
+| Faster commands and robot diagnostics | Expand Jev's local paths for colors, scenes, and scripts, and show each robot's last result, selected agent, and response time in Home Assistant. |
+
+Development must preserve household isolation, Assist exposure, revocation, deadlines, honest uncertain outcomes, and the rule that interrupted actions are never replayed. Existing robot recognition and voice remain the starting point. Feature availability will be updated from actual release evidence.
+
 ## Development and evidence
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for reproducible tests, [protocol.md](docs/protocol.md) for the wire contract, and [release evidence](docs/validation.md) for the distinction between isolated tests and physical evidence. All public fixtures use invented devices and identities.
