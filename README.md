@@ -2,16 +2,16 @@
 
 Let Jibo control devices exposed to Home Assistant Assist. This beta uses Home Assistant's built-in conversation agent, with no LLM requirement. Home Assistant connects **outbound over authenticated TLS WebSocket** to Phoenix. No port forwarding, public Home Assistant URL, or paid remote-access subscription is needed.
 
-Release candidate: **0.2.0b1**. Home Assistant **2026.8.1 or newer**; English commands. Compatibility tests use actual HA 2026.8.1 and 2026.9.4. Home control keeps Jibo's existing recognition and voice. Native announcements require **BE 13.1.0**; their candidate hardware check is pending. The earlier owner-installed connector controlled one approved physical light from BE 13.0.2 with supplied ASR text. See [validation evidence](docs/validation.md) for measured results and remaining checks.
+Published beta: **[0.2.0b1](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.2.0b1)**. Home Assistant **2026.8.1 or newer**; English commands. Compatibility tests use actual HA 2026.8.1 and 2026.9.4. Home control keeps Jibo's existing recognition and voice. Native announcements require **BE 13.1.0**; physical receiver acceptance is pending. The earlier owner-installed connector controlled one approved physical light from BE 13.0.2 with supplied ASR text. See [validation evidence](docs/validation.md) for measured results and remaining checks.
 
 ## Install through HACS
 
 1. In HACS, open the menu → **Custom repositories**.
 2. Add `https://github.com/Paskooter/phoenix-home-assistant`, category **Integration**.
-3. Find **Phoenix**, select **Download**, enable beta/prerelease versions when choosing a version, and select **0.2.0b1** once its release is published.
+3. Find **Phoenix**, select **Download**, enable beta/prerelease versions when choosing a version, and select **0.2.0b1**.
 4. Restart Home Assistant. Refresh the browser if Phoenix does not appear in the integration picker.
 
-For a manual installation, download `phoenix.zip` from the [release page](https://github.com/Paskooter/phoenix-home-assistant/releases). Create `custom_components/phoenix/` inside your Home Assistant configuration directory, then extract the archive's files directly into it. The resulting path must be `custom_components/phoenix/manifest.json`. Restart Home Assistant. Do not copy the repository's entire root into `custom_components/phoenix`.
+For a manual installation, download `phoenix.zip` from the [0.2.0b1 release page](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.2.0b1). Create `custom_components/phoenix/` inside your Home Assistant configuration directory, then extract the archive's files directly into it. The resulting path must be `custom_components/phoenix/manifest.json`. Restart Home Assistant. Do not copy the repository's entire root into `custom_components/phoenix`.
 
 ## Link your household
 
@@ -120,11 +120,11 @@ To remove access immediately, choose **Disconnect** in the Phoenix console. Remo
 
 ## Release scope
 
-The six requested additions are implemented in this candidate. Its release evidence distinguishes actual isolated HA checks from physical robot checks.
+The six requested additions are implemented in this beta. Its release evidence distinguishes actual isolated HA checks from physical robot checks.
 
 | Addition | Owner experience |
 | --- | --- |
-| Jibo announcements from automations | Native announcement entities, installation opt-in and local quiet hours, using Jibo's current volume. Requires BE 13.1.0 and final candidate hardware acceptance. |
+| Jibo announcements from automations | Native announcement entities, installation opt-in and local quiet hours, using Jibo's current volume. Requires BE 13.1.0; physical receiver acceptance is pending. |
 | Robot room context | Assign each Jibo to a Home Assistant area so “turn on the lights” can refer to that room. |
 | Questions about the home | Ask about the states of Assist-exposed devices, using a route that reads state without changing devices. |
 | Brief follow-up context | Refer to the previous home command with phrases such as “make it dimmer”; keep context separate for each robot and expire it after a short period. |
