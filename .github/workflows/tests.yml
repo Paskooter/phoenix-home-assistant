@@ -28,11 +28,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Paskooter/ha-conversation-jev
-          ref: v0.2.0b1
+          ref: v0.3.0b1
           path: jev-fork
       - run: npm ci --ignore-scripts
         working-directory: phoenix-server
       - run: python -m pip install homeassistant==${{ matrix.homeassistant }} -r requirements-test.txt -r requirements-conversation-${{ matrix.homeassistant }}.txt -r jev-fork/requirements-dev.txt
+      - run: node --check tests/next_release_backend.mjs
+      - run: node --check tests/next_release_gateway.mjs
       - run: ruff check custom_components tests
       - run: ruff format --check custom_components tests
       - run: python -m pytest -q -s

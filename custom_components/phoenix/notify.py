@@ -1,0 +1,63 @@
+"""Native notify.send_message announces through the existing outbound TLS link."""
+
+from homeassistant.components.notify import NotifyEntity
+from homeassistant.core import callback
+from homeassistant.exceptions import ServiceValidationError
+
+from .const import DOMAIN
+from .entity import PhoenixRobotEntity
+
+
+async def async_setup_entry(hass, entry, async_add_entities):
+    client = entry.runtime_data.client
+    added: set[str] = set()
+
+    @callback
+    def add_robots() -> None:
+        if "robot_action" not in client.capabilities:
+            return
+        new = set(client.robots).difference(added)
+        added.update(new)
+        async_add_entities([PhoenixAnnouncement(client, robot_id) for robot_id in sorted(new)])
+
+    entry.async_on_unload(client.subscribe_roster(add_robots))
+    add_robots()
+
+
+class PhoenixAnnouncement(PhoenixRobotEntity, NotifyEntity):
+    """The timestamp advances only after confirmed spoken completion."""
+
+    _attr_entity_category = None
+
+    def __init__(self, client, robot_id):
+        super().__init__(client, robot_id, "announcement")
+
+    @property
+    def available(self) -> bool:
+        return bool(
+            super().available
+            and "robot_action" in self.client.capabilities
+            and self.robot.online
+            and self.robot.announcements_allowed
+            and self.robot.announcements_supported
+        )
+
+    @property
+    def extra_state_attributes(self):
+        robot = self.robot
+        if not robot or self.client.state != "connected":
+            reason = "disconnected"
+        elif not robot.announcements_allowed:
+            reason = "permission_required"
+        elif not robot.announcements_supported:
+            reason = "firmware_required"
+        elif not robot.online:
+            reason = "offline"
+        else:
+            reason = None
+        return {"unavailable_reason": reason, "minimum_firmware": "13.1.0"}
+
+    async def async_send_message(self, message: str, title: str | None = None) -> None:
+        if title:
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="unsupported_title")
+        await self.client.async_announce(self.robot_id, message)

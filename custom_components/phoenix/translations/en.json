@@ -45,6 +45,9 @@
     "binary_sensor": {
       "connected": {
         "name": "Connection"
+      },
+      "robot_online": {
+        "name": "Robot connection"
       }
     },
     "sensor": {
@@ -57,21 +60,65 @@
           "authentication_required": "Relink required",
           "protocol_error": "Protocol error"
         }
+      },
+      "last_response": {
+        "name": "Last response",
+        "state": {
+          "success": "Confirmed",
+          "partial": "Partially completed",
+          "error": "Could not complete",
+          "uncertain": "Could not confirm",
+          "expired": "Expired"
+        }
+      },
+      "response_latency": {
+        "name": "Response latency"
+      },
+      "selected_agent": {
+        "name": "Conversation agent"
+      }
+    },
+    "notify": {
+      "announcement": {
+        "name": "Announcement"
       }
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Jibo conversation agent",
-        "description": "Home Assistant (built-in) is the default. Select Jev Assist or another installed agent to opt in. This affects only Jibo home commands and keeps your existing Phoenix link. Changing the default Assist pipeline does not change this setting.",
+        "title": "Jibo voice settings",
+        "description": "Choose the conversation agent for Jibo home commands. Assign each Jibo device to an area in Home Assistant for room context. Enable announcements separately in the Phoenix console; they use Jibo's current master volume. Quiet hours use Home Assistant's time zone and may cross midnight. Add an exact routine phrase and an Assist-exposed scene or script; reopen these settings to add another phrase. Routines are reported as started, without claiming their resulting device states.",
         "data": {
-          "conversation_agent": "Conversation agent"
+          "conversation_agent": "Conversation agent",
+          "quiet_hours_enabled": "Enable quiet hours",
+          "quiet_hours_start": "Quiet hours start",
+          "quiet_hours_end": "Quiet hours end",
+          "shortcut_phrase": "Add routine phrase",
+          "shortcut_target": "Routine scene or script",
+          "remove_shortcuts": "Remove routine phrases"
         }
       }
     },
     "error": {
-      "invalid_agent": "Choose an installed conversation agent."
+      "invalid_agent": "Choose an installed conversation agent.",
+      "invalid_shortcut": "Choose a unique phrase of up to 80 characters and a scene or script. Ordinary Jibo commands are reserved. You can save up to 16 phrases; their combined size must fit one connector message.",
+      "shortcut_not_exposed": "Expose this scene or script to Assist before adding a routine phrase.",
+      "invalid_quiet_hours": "Choose valid start and end times for quiet hours."
     }
+  },
+  "exceptions": {
+    "invalid_message": {"message": "Use a nonempty plain-text announcement of up to 300 characters."},
+    "unsupported_title": {"message": "Jibo announcements accept a message without a title."},
+    "disconnected": {"message": "Phoenix is disconnected. This announcement was not queued."},
+    "unsupported_announcements": {"message": "This Phoenix server does not support Jibo announcements."},
+    "unsupported_robot_announcements": {"message": "Jibo announcements need the native receiver in BE 13.1.0 or later. Room context, home commands, and questions can still use this connection."},
+    "permission_denied": {"message": "Enable announcements for this installation in the Phoenix console."},
+    "quiet_hours": {"message": "Quiet hours are active. This announcement was not sent or queued."},
+    "robot_offline": {"message": "Jibo is offline. This announcement was not queued."},
+    "robot_busy": {"message": "Jibo is busy. This announcement was not queued."},
+    "announcement_expired": {"message": "The announcement expired before it could be spoken."},
+    "confirmation_lost": {"message": "Phoenix could not confirm that Jibo finished speaking. The announcement will not be retried."},
+    "announcement_failed": {"message": "Jibo could not complete the announcement. It will not be retried."}
   }
 }

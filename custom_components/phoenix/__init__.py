@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 
 from homeassistant.components import persistent_notification
+from homeassistant.components.homeassistant import exposed_entities
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -15,7 +16,7 @@ from .client import PhoenixClient, reject_redirects
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR]
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR, Platform.NOTIFY]
 
 
 @dataclass
@@ -33,6 +34,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry[PhoenixData]
     entry.async_on_unload(session.detach)
     client = PhoenixClient(hass, entry, session, auth_failed=lambda: entry.async_start_reauth(hass))
     entry.runtime_data = PhoenixData(client)
+
+    def exposure_changed(_entity_ids=None) -> None:
+        if client.ready:
+            entry.async_create_background_task(hass, client.async_refresh_preferences(), "Phoenix exposure preferences")
+
+    entry.async_on_unload(exposed_entities.async_listen_entity_updates(hass, "conversation", exposure_changed))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_create_background_task(hass, client.async_run(), "Phoenix connector")
     entry.async_on_unload(entry.add_update_listener(_async_reload))
