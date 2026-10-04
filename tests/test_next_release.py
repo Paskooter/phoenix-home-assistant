@@ -188,11 +188,11 @@ async def announcement_status(hass, entry, robot_id, expected, *, notify_availab
     state = hass.states.get(row.entity_id)
     assert row.entity_category == EntityCategory.DIAGNOSTIC
     assert row.entity_id.startswith("sensor.")
-    assert state.attributes["minimum_firmware"] == "13.1.1"
+    assert state.attributes["minimum_firmware"] == "13.1.2"
     assert state.attributes["device_class"] == "enum"
     assert expected in state.attributes["options"]
     if notify_available:
-        assert hass.states.get(native.entity_id).attributes["minimum_firmware"] == "13.1.1"
+        assert hass.states.get(native.entity_id).attributes["minimum_firmware"] == "13.1.2"
     return state
 
 
