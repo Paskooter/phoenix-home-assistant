@@ -59,7 +59,7 @@ The exact follow-ups "make it/them/those dimmer" and "make it/them/those brighte
 
 ## Reverse announcements
 
-Use the native HA action `notify.send_message` with the Jibo announcement entity and plain `message`. The entity is available when the connection, native receiver, robot presence, and explicit permission are available. Its `unavailable_reason` distinguishes disconnected, required permission, required firmware, and offline states. Titles are unsupported. Announcements use Jibo's current master volume. Local options set optional quiet hours in HA's time zone. Quiet hours can cross midnight; equal start/end means all day. Older stored volume options are ignored and removed when settings are saved.
+Use the native HA action `notify.send_message` with the Jibo announcement entity and plain `message`. The entity is available when the connection, native receiver, robot presence, and explicit permission are available. The separate Announcement status diagnostic sensor keeps local readiness and `minimum_firmware` visible while notify is unavailable, including disconnected, required permission, required firmware, and offline states. Busy and quiet-hours states describe local admission conditions; they do not confirm delivery. Titles are unsupported. Announcements use Jibo's current master volume. Local options set optional quiet hours in HA's time zone. Quiet hours can cross midnight; equal start/end means all day. Older stored volume options are ignored and removed when settings are saved.
 
 The integration sends one request over the existing outbound authenticated TLS connection:
 
