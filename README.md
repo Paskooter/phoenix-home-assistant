@@ -2,7 +2,7 @@
 
 Let Jibo control devices exposed to Home Assistant Assist. This beta uses Home Assistant's built-in conversation agent, with no LLM requirement. Home Assistant connects **outbound over authenticated TLS WebSocket** to Phoenix. No port forwarding, public Home Assistant URL, or paid remote-access subscription is needed.
 
-Next beta candidate: **0.2.0b2**. Published beta: **[0.2.0b1](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.2.0b1)**. Home Assistant **2026.8.1 or newer**; English commands. [Full CI](https://github.com/Paskooter/phoenix-home-assistant/actions/runs/37190564109) passed 66 integration cases on each of actual HA 2026.8.1 and 2026.9.4, plus HACS and hassfest. Home control keeps Jibo's existing recognition and voice. The corrected **BE 13.1.2** receiver passed physical announcement completion, idle reconnect, supplied-ASR voice preemption, normal-mode reboot and the approved light's on/off regression. An approved regression on BE 13.0.2 confirmed one physical light's on/off states and native spoken replies through the owner's connector with supplied ASR text. Microphone recognition remains unverified. See [validation evidence](docs/validation.md) for measured results and remaining checks.
+Published beta: **[0.2.0b2](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.2.0b2)**. Home Assistant **2026.8.1 or newer**; English commands. [Full CI](https://github.com/Paskooter/phoenix-home-assistant/actions/runs/37190564109) passed 66 integration cases on each of actual HA 2026.8.1 and 2026.9.4, plus HACS and hassfest. Home control keeps Jibo's existing recognition and voice. The corrected **BE 13.1.2** receiver passed physical announcement completion, idle reconnect, supplied-ASR voice preemption, normal-mode reboot and the approved light's on/off regression. An approved regression on BE 13.0.2 confirmed one physical light's on/off states and native spoken replies through the owner's connector with supplied ASR text. Microphone recognition remains unverified. See [validation evidence](docs/validation.md) for measured results and remaining checks.
 
 Beta 0.2.0b2 corrects the minimum firmware shown by announcement diagnostics and errors after BE 13.1.0 speech-adapter and BE 13.1.1 receiver-timer initialization failures. Each robot's **Announcement status** diagnostic sensor keeps local readiness and the minimum receiver version visible while the Announcement entity is unavailable. The published 0.2.0b1 archive stays unchanged and uses the same protocol as 0.2.0b2. The receiver correction retains protocol 1, so an existing 0.2.0b1 installation needs no immediate HA reinstall; its older diagnostic label can still show 13.1.0 and unavailable entities can omit the guidance.
 
@@ -10,10 +10,10 @@ Beta 0.2.0b2 corrects the minimum firmware shown by announcement diagnostics and
 
 1. In HACS, open the menu → **Custom repositories**.
 2. Add `https://github.com/Paskooter/phoenix-home-assistant`, category **Integration**.
-3. Find **Phoenix**, select **Download**, enable beta/prerelease versions when choosing a version, and select **0.2.0b1**.
+3. Find **Phoenix**, select **Download**, enable beta/prerelease versions when choosing a version, and select **0.2.0b2**.
 4. Restart Home Assistant. Refresh the browser if Phoenix does not appear in the integration picker.
 
-For a manual installation, download `phoenix.zip` from the [0.2.0b1 release page](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.2.0b1). Create `custom_components/phoenix/` inside your Home Assistant configuration directory, then extract the archive's files directly into it. The resulting path must be `custom_components/phoenix/manifest.json`. Restart Home Assistant. Do not copy the repository's entire root into `custom_components/phoenix`.
+For a manual installation, download `phoenix.zip` from the [0.2.0b2 release page](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.2.0b2). Create `custom_components/phoenix/` inside your Home Assistant configuration directory, then extract the archive's files directly into it. The resulting path must be `custom_components/phoenix/manifest.json`. Restart Home Assistant. Do not copy the repository's entire root into `custom_components/phoenix`.
 
 ## Link your household
 
