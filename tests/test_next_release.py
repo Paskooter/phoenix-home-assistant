@@ -365,7 +365,12 @@ async def test_local_notify_opt_in_quiet_hours_and_confirmation(hass, robot):
         },
     )
     await wait_for(
-        lambda: entry.runtime_data.client is not old and entry.runtime_data.client.ready and robot.announcements_enabled
+        lambda: (
+            entry.runtime_data.client is not old
+            and entry.runtime_data.client.ready
+            and robot.announcements_enabled
+            and entry.runtime_data.client.robots[robot.robot_id].announcements_allowed
+        )
     )
     with pytest.raises(ServiceValidationError) as error:
         await entry.runtime_data.client.async_announce(robot.robot_id, "Invented quiet message")
@@ -404,7 +409,12 @@ async def test_announcement_status_local_clock_transition_and_timer_cleanup(hass
         },
     )
     await wait_for(
-        lambda: entry.runtime_data.client is not old and entry.runtime_data.client.ready and robot.announcements_enabled
+        lambda: (
+            entry.runtime_data.client is not old
+            and entry.runtime_data.client.ready
+            and robot.announcements_enabled
+            and entry.runtime_data.client.robots[robot.robot_id].announcements_allowed
+        )
     )
     client = entry.runtime_data.client
     status = er.async_get(hass).async_get_entity_id("sensor", "phoenix", f"{robot.robot_id}_announcement_status")

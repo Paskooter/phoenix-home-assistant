@@ -25,9 +25,42 @@ async def allow_announcements(hass, entry, robot):
             entry.runtime_data.client is not previous
             and entry.runtime_data.client.ready
             and robot.announcements_enabled
+            and entry.runtime_data.client.robots[robot.robot_id].announcements_allowed
         )
     )
     return entry.runtime_data.client
+
+
+async def test_announcement_preferences_wait_for_authenticated_roster(hass, robot, monkeypatch):
+    """Robot preferences arrive before HA learns the resulting permission."""
+    entry = await linked_entry(hass, robot)
+    roster_pending, release_roster = asyncio.Event(), asyncio.Event()
+    original = robot.roster
+
+    async def delayed_roster():
+        roster_pending.set()
+        await release_roster.wait()
+        await original()
+
+    monkeypatch.setattr(robot, "roster", delayed_roster)
+    task = asyncio.create_task(allow_announcements(hass, entry, robot))
+    try:
+        await wait_for(roster_pending.is_set)
+        client = entry.runtime_data.client
+        assert client.ready and robot.announcements_enabled
+        assert not client.robots[robot.robot_id].announcements_allowed
+        with pytest.raises(ServiceValidationError) as error:
+            await client.async_announce(robot.robot_id, "Invented early announcement")
+        assert error.value.translation_key == "permission_denied"
+        assert not robot.speech_calls and not any(frame["type"] == "robot_action" for frame in robot.frames)
+        done, _ = await asyncio.wait({task}, timeout=0.05)
+        assert not done
+    finally:
+        release_roster.set()
+        client = await task
+    assert client.robots[robot.robot_id].announcements_allowed
+    result = await client.async_announce(robot.robot_id, "Invented confirmed announcement")
+    assert result["outcome"] == "success" and len(robot.speech_calls) == 1
 
 
 async def test_tls_flow_builtin_results_reload_unload_remove(hass, robot):
