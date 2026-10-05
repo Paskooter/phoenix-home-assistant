@@ -8,6 +8,8 @@ from homeassistant import auth, bootstrap, config_entries, loader
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 
+from tests.direct_backend import SyntheticLocalRobot
+
 if project := os.environ.get("JEV_PROJECT_DIR"):
     # Both repositories use the custom_components namespace. Register it before
     # HA discovers integrations, just as an owner's installed folders would be.
@@ -27,3 +29,13 @@ async def hass(tmp_path):
     assert await async_setup_component(hass, "homeassistant", {})
     yield hass
     await hass.async_stop(force=True)
+
+
+@pytest.fixture
+async def robot(tmp_path):
+    """A public, invented local peer; only its loopback socket is reachable."""
+    peer = await SyntheticLocalRobot(tmp_path / "invented-robot").start()
+    try:
+        yield peer
+    finally:
+        await peer.close()

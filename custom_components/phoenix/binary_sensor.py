@@ -4,6 +4,7 @@ from homeassistant.components.binary_sensor import BinarySensorDeviceClass, Bina
 from homeassistant.core import callback
 
 from .entity import PhoenixEntity, PhoenixRobotEntity
+from .telemetry import BINARY_DESCRIPTIONS
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -16,6 +17,13 @@ async def async_setup_entry(hass, entry, async_add_entities):
         new = set(client.robots).difference(added)
         added.update(new)
         async_add_entities([PhoenixRobotOnline(client, robot_id) for robot_id in sorted(new)])
+        async_add_entities(
+            [
+                PhoenixTelemetryBinarySensor(client, robot_id, description)
+                for robot_id in sorted(new)
+                for description in BINARY_DESCRIPTIONS
+            ]
+        )
 
     entry.async_on_unload(client.subscribe_roster(add_robots))
     add_robots()
@@ -39,8 +47,18 @@ class PhoenixRobotOnline(PhoenixRobotEntity, BinarySensorEntity):
         super().__init__(client, robot_id, "robot_online")
 
     @property
+    def available(self) -> bool:
+        return True
+
+    @property
     def is_on(self):
-        return self.robot.online if self.robot else False
+        return bool(
+            self.client.ready
+            and self.client.state == "connected"
+            and self.client.socket is not None
+            and not self.client.socket.closed
+            and self.robot is not None
+        )
 
     @property
     def extra_state_attributes(self):
@@ -49,3 +67,19 @@ class PhoenixRobotOnline(PhoenixRobotEntity, BinarySensorEntity):
             "announcements_allowed": self.robot.announcements_allowed if self.robot else False,
             "announcements_supported": self.robot.announcements_supported if self.robot else False,
         }
+
+
+class PhoenixTelemetryBinarySensor(PhoenixRobotEntity, BinarySensorEntity):
+    """Use genuine observed booleans, never absence as an off/closed reading."""
+
+    def __init__(self, client, robot_id, description):
+        super().__init__(client, robot_id, description.key)
+        self.entity_description = description
+
+    @property
+    def available(self) -> bool:
+        return self.client.telemetry_available(self.entity_description.key)
+
+    @property
+    def is_on(self):
+        return self.client.telemetry_values.get(self.entity_description.key)

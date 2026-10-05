@@ -8,8 +8,9 @@ from homeassistant.const import UnitOfTime
 from homeassistant.core import callback
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import MAX_COMMANDS, MIN_ANNOUNCEMENT_FIRMWARE
+from .const import CONF_ALLOW_ANNOUNCEMENTS, MAX_COMMANDS, MIN_ANNOUNCEMENT_FIRMWARE
 from .entity import PhoenixEntity, PhoenixRobotEntity
+from .telemetry import SENSOR_DESCRIPTIONS
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -28,6 +29,13 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 for entity in (PhoenixRobotResponse, PhoenixRobotLatency, PhoenixRobotAgent, PhoenixAnnouncementStatus)
             ]
         )
+        async_add_entities(
+            [
+                PhoenixTelemetrySensor(client, robot_id, description)
+                for robot_id in sorted(new)
+                for description in SENSOR_DESCRIPTIONS
+            ]
+        )
 
     entry.async_on_unload(client.subscribe_roster(add_robots))
     add_robots()
@@ -35,7 +43,14 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 class PhoenixConnectionStatus(PhoenixEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.ENUM
-    _attr_options = ["connected", "connecting", "disconnected", "authentication_required", "protocol_error"]
+    _attr_options = [
+        "connected",
+        "connecting",
+        "disconnected",
+        "authentication_required",
+        "protocol_error",
+        "pairing_required",
+    ]
 
     def __init__(self, client):
         super().__init__(client, "connection_status")
@@ -99,7 +114,7 @@ class PhoenixAnnouncementStatus(PhoenixRobotEntity, SensorEntity):
             return "disconnected"
         if "robot_action" not in client.capabilities:
             return "unsupported_server"
-        if not robot.announcements_allowed:
+        if client.entry.options.get(CONF_ALLOW_ANNOUNCEMENTS) is not True or not robot.announcements_allowed:
             return "permission_required"
         if not robot.announcements_supported:
             return "firmware_required"
@@ -156,3 +171,19 @@ class PhoenixRobotAgent(PhoenixRobotEntity, SensorEntity):
         if info := conversation.async_get_agent_info(self.hass, self.client.agent_id):
             return info.name
         return "Unavailable"
+
+
+class PhoenixTelemetrySensor(PhoenixRobotEntity, SensorEntity):
+    """An observed local metric, unavailable if missing, malformed or stale."""
+
+    def __init__(self, client, robot_id, description):
+        super().__init__(client, robot_id, description.key)
+        self.entity_description = description
+
+    @property
+    def available(self) -> bool:
+        return self.client.telemetry_available(self.entity_description.key)
+
+    @property
+    def native_value(self):
+        return self.client.telemetry_values.get(self.entity_description.key)

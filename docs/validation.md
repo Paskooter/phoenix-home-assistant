@@ -1,5 +1,38 @@
 # Release validation
 
+## Direct candidate 0.3.0b1 — acceptance pending
+
+The direct candidate targets **BE 13.2.0**, **Services 13.0.8**, and baseline **OS 13.0.7**. Its software compatibility and complete firmware archive checks passed on 2026-10-05. Installed direct physical pairing, a genuine native wake, LAN actions and spoken replies still need hardware acceptance; HACS/CI and exact integration-archive installation are separate gates.
+
+Actual Home Assistant **2026.8.1** passed **93/93 tests in 139.58 seconds** and **2026.9.4** passed **93/93 in 136.22 seconds**, with no skips. Both runs exercised the actual private TLS endpoint on official **Node 6.5.0**, an independent Python TLS robot fixture, and the actual Jev SDK with provider HTTP intercepted. Devices and identities were invented; no household or paid provider call occurred. Each run reported 81 installed-core/Aiohttp warnings. Ruff, formatting, Node syntax, source equality and diff checks passed.
+
+The complete robot host suite passed **141/141 tests**. Its 32 native-hook cases and 10 telemetry cases also passed on official Node 6.5.0; the shipped page's 13 startup cases passed there too. The committed BE 13.2.0 tar passed the hash-pinned complete official 11.0.1 gate: **21,590 official files**, **21,617 candidate files**, **27 additions**, no missing official files, and **zero unresolved package entry points**. Its SHA-256 is `5dc858d8b5f94130b4f7a1fce43b73b72deb8b16142f583b7db123fd0d7fbefe`. These checks do not establish installed ARM/Electron acceptance.
+
+On 2026-10-05, the reviewed read-only telemetry provider ran in memory on the designated test robot's actual Electron 1.4.3 / Node 6.5.0 runtime. It returned valid readings for all fourteen measurement fields, including native touch, hatch, preview, and circadian state. Native service source inspection verified Celsius, volts, dB RMS, and fractional fan/volume units. The actual certificate builder also generated a valid local certificate and TLS 1.2 context in memory. These probes installed no firmware, created no pairing, and issued no speech or device action. Online and the full physical HA session still require the direct checks below.
+
+Before release, record artifact-pinned results for the following checks. A passing legacy cloud test cannot substitute for a direct-path result.
+
+| Required direct check | Evidence status |
+| --- | --- |
+| HA minimum/current-version lifecycle and exact release-archive installation | Lifecycle passed on both versions; exact archive pending |
+| Physical pairing, matching/mismatched eight-digit SAS, cancellation, expiry, replacement, and certificate pinning | Isolated TLS protocol passed; physical approval pending |
+| Legacy migration with cloud socket stopped, preserved agent/routine/quiet-hours options, fresh local announcement opt-in, explicit old device/area choice, and offline cleanup guidance | Passed in isolated HA on both versions |
+| Native wake admission; rejected unsolicited cloud command/query/result and expired/reused requests | Native fake-runtime and actual Node 6.5 endpoint passed; genuine physical wake pending |
+| Local on/off commands, state queries, room context, follow-ups, routines, and honest uncertainty | Passed against real HA with invented devices; physical command pending |
+| Local announcement completion, native voice/touch interruption, current-volume preservation, and no replay | Isolated native/protocol passed; physical speech/touch pending |
+| LAN status and opted-in announcements during a Phoenix restart, without a persistent voice reservation | Pending |
+| HA/robot reconnect and normal reboot, durable request admission, corruption fail-closed behavior, and no replay | Isolated restart/storage/reconnect passed; normal physical boot pending |
+| Removal/physical Forget and durable revocation, including offline removal | Isolated API/UI revocation passed; physical Forget pending |
+| All fifteen HA sensor entities, native units, immediate touch, source expiry, and connection loss | Native scalar provider and isolated HA lifecycle passed; physical session pending |
+| Complete committed BE packaging and official-archive integrity gate | Passed: 21,617 files; no official omissions or unresolved mains |
+
+Phoenix ASR supplies trusted recognized text during an admitted wake turn. Operator-provided firmware and its fixed trust configuration remain trusted. Voice still needs Phoenix and does not gain offline recognition or full transcript privacy.
+
+## Historical cloud-connector evidence
+
+The results below apply to their named protocol-1 releases and artifacts. They are retained as historical evidence and do not validate the 0.3 direct transport, physical SAS pairing, or independent LAN announcements/status.
+
+
 ## 0.2.0b2 and corrected receiver
 
 Beta **0.2.0b2** changes integration version metadata and the minimum receiver firmware shown in diagnostics and errors to **BE 13.1.2**. Each robot also has a standard [enum diagnostic sensor](https://developers.home-assistant.io/docs/core/entity/sensor/), **Announcement status**, that keeps local readiness and minimum receiver guidance visible when the notify entity is unavailable. The sensor reads cached connection, permission and receiver flags and the existing local quiet-hours check; it performs no I/O or actions. A local 30-second refresh keeps quiet-hours status current without network updates, and its timer is removed when the entity unloads. Notify availability, action admission, permission checks and protocol behavior are unchanged.

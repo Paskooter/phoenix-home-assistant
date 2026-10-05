@@ -3,42 +3,65 @@
   "config": {
     "step": {
       "user": {
-        "title": "Link Phoenix",
-        "description": "Generate a connection code in your Phoenix console \u2192 Home Assistant. It expires after ten minutes. Choose exposed devices in Home Assistant \u2192 Settings \u2192 Voice assistants \u2192 Expose. Self-hosted servers need a trusted HTTPS certificate.",
+        "title": "Pair Jibo locally",
+        "description": "Open Home Assistant pairing on Jibo, then enter its hostname.local or LAN IP address. Home Assistant and Jibo must be able to reach each other on your local network. You will compare a code on both devices before approving the connection. No Phoenix connection code or Home Assistant access token is needed.",
         "data": {
-          "phoenix_url": "Phoenix server URL",
-          "connection_code": "One-time connection code"
+          "host": "Jibo hostname or LAN IP address",
+          "port": "Local port",
+          "legacy_device_id": "Existing Jibo device to copy its room"
         }
       },
       "reauth_confirm": {
-        "title": "Relink Phoenix",
-        "description": "Generate a connection code in your Phoenix console \u2192 Home Assistant. It expires after ten minutes. Choose exposed devices in Home Assistant \u2192 Settings \u2192 Voice assistants \u2192 Expose. Self-hosted servers need a trusted HTTPS certificate.",
+        "title": "Pair Jibo again",
+        "description": "Open a fresh Home Assistant pairing window on the same Jibo. Compare the new code before approving on Jibo and here. Existing credentials and certificate pins will only be replaced after that physical pairing succeeds.",
         "data": {
-          "phoenix_url": "Phoenix server URL",
-          "connection_code": "One-time connection code"
+          "host": "Jibo hostname or LAN IP address",
+          "port": "Local port",
+          "legacy_device_id": "Existing Jibo device to copy its room"
         }
       },
       "reconfigure": {
-        "title": "Change Phoenix connection",
-        "description": "Generate a connection code in your Phoenix console \u2192 Home Assistant. It expires after ten minutes. Choose exposed devices in Home Assistant \u2192 Settings \u2192 Voice assistants \u2192 Expose. Self-hosted servers need a trusted HTTPS certificate.",
+        "title": "Change Jibo address",
+        "description": "For an already paired Jibo, this changes only its address and verifies the stored certificate and local credential. It cannot trust a different robot or certificate. A legacy cloud connection instead requires physical local pairing; explicitly select the old Jibo device whose room should be copied, or choose not to copy a room.",
         "data": {
-          "phoenix_url": "Phoenix server URL",
-          "connection_code": "One-time connection code"
+          "host": "Jibo hostname or LAN IP address",
+          "port": "Local port",
+          "legacy_device_id": "Existing Jibo device to copy its room"
+        }
+      },
+      "pair_confirm": {
+        "title": "Compare the pairing code",
+        "description": "Home Assistant code: **{code}**. Check that Jibo shows exactly the same eight digits. If they differ, reject the request on Jibo and stop this flow. If they match, approve on Jibo, then confirm below. Pairing expires after two minutes.",
+        "data": {
+          "confirm_pairing": "The codes match and I approved this connection on Jibo"
         }
       }
     },
     "error": {
-      "invalid_url": "Enter an HTTPS server origin without a path, username, query, or fragment.",
-      "invalid_code": "This code is expired, already used, or invalid. Generate a new code in Phoenix.",
-      "cannot_connect": "Unable to reach Phoenix. Check the server URL and connection. If a code may have been used, disconnect that installation in Phoenix and generate a new code.",
-      "rate_limited": "Too many linking attempts. Wait fifteen minutes and generate a new code.",
-      "already_linked": "A selected Jibo is already linked. Disconnect its old installation in Phoenix first.",
-      "unsupported_protocol": "This Phoenix server uses an unsupported connector protocol. Update Phoenix and this integration."
+      "invalid_host": "Enter a hostname or IP address and a valid local port, without a URL path, username, query or fragment.",
+      "cannot_connect": "Unable to reach Jibo locally. Check its address, local network, direct Home Assistant mode and pairing window. No cloud fallback is used.",
+      "unsupported_tls": "Jibo did not offer the required encrypted local connection. Check the direct integration firmware.",
+      "unsupported_protocol": "Jibo uses an unsupported local protocol. Update the robot and this integration.",
+      "certificate_changed": "The local certificate differs from the pinned pairing. No credential was sent to that peer. Verify the robot and start physical pairing again.",
+      "pairing_verification_failed": "The pairing exchange could not be verified. Reject it on Jibo and start a fresh pairing window.",
+      "pairing_pending": "Approve the matching code on Jibo first, then confirm again here.",
+      "pairing_expired": "The pairing window expired. Close this flow, open a fresh window on Jibo and start again.",
+      "pairing_rejected": "Jibo rejected this pairing. Open a fresh window only if you want to try again.",
+      "pairing_unavailable": "Open a fresh physical Home Assistant pairing window on Jibo. Another pairing may already be in progress.",
+      "invalid_claim": "This pairing claim was rejected. Stop this flow and start a fresh physical pairing window.",
+      "pairing_failed": "Jibo could not complete the pairing. Check its local screen before starting a new window.",
+      "rate_limited": "Too many pairing attempts. Wait and open a fresh physical pairing window.",
+      "codes_not_confirmed": "Compare both codes and approve on Jibo before confirming here.",
+      "invalid_legacy_device": "Choose one of this legacy installation’s Jibo devices, or explicitly choose not to copy a room.",
+      "invalid_auth": "The stored local credential was rejected. Pair the same Jibo again through reauthentication.",
+      "wrong_robot": "This address belongs to a different robot or pairing generation. The stored connection was not replaced."
     },
     "abort": {
-      "already_configured": "This installation is already configured.",
-      "reauth_successful": "Phoenix has been relinked.",
-      "reconfigure_successful": "Phoenix connection updated."
+      "already_configured": "This locally identified Jibo is already configured.",
+      "wrong_robot": "This is a different Jibo. Add it as a separate integration entry instead.",
+      "pairing_expired": "Start a fresh physical pairing window on Jibo and a new setup flow.",
+      "reauth_successful": "Jibo has been paired again locally.",
+      "reconfigure_successful": "Jibo’s local address was verified and updated."
     }
   },
   "entity": {
@@ -47,7 +70,19 @@
         "name": "Connection"
       },
       "robot_online": {
-        "name": "Robot connection"
+        "name": "Online"
+      },
+      "hatch_open": {
+        "name": "Hatch state"
+      },
+      "head_touch": {
+        "name": "Head touch"
+      },
+      "plugged_in": {
+        "name": "Plugged in"
+      },
+      "sleeping": {
+        "name": "Sleeping"
       }
     },
     "sensor": {
@@ -57,15 +92,16 @@
           "connected": "Connected",
           "connecting": "Connecting",
           "disconnected": "Disconnected",
-          "authentication_required": "Relink required",
-          "protocol_error": "Protocol error"
+          "authentication_required": "Physical pairing required",
+          "protocol_error": "Protocol error",
+          "pairing_required": "Local pairing required"
         }
       },
       "announcement_status": {
         "name": "Announcement status",
         "state": {
           "disconnected": "Disconnected",
-          "unsupported_server": "Server support required",
+          "unsupported_server": "Direct endpoint support required",
           "permission_required": "Permission required",
           "firmware_required": "Receiver firmware required",
           "quiet_hours": "Quiet hours",
@@ -89,6 +125,48 @@
       },
       "selected_agent": {
         "name": "Conversation agent"
+      },
+      "battery_percent": {
+        "name": "Battery"
+      },
+      "battery_temperature_c": {
+        "name": "Battery temperature"
+      },
+      "camera": {
+        "name": "Camera",
+        "state": {
+          "idle": "Idle",
+          "active": "Active",
+          "disabled": "Disabled"
+        }
+      },
+      "charging_state": {
+        "name": "Charging state",
+        "state": {
+          "charging": "Charging",
+          "discharging": "Discharging",
+          "full": "Full",
+          "not_charging": "Not charging",
+          "not_plugged_in": "Not plugged in"
+        }
+      },
+      "cpu_temperature_c": {
+        "name": "CPU temperature"
+      },
+      "fan_percent": {
+        "name": "Fan speed"
+      },
+      "main_board_temperature_c": {
+        "name": "Main board temperature"
+      },
+      "microphone_rms_db": {
+        "name": "Microphone RMS"
+      },
+      "speaker_volume_percent": {
+        "name": "Speaker volume"
+      },
+      "system_voltage_v": {
+        "name": "System voltage"
       }
     },
     "notify": {
@@ -101,7 +179,7 @@
     "step": {
       "init": {
         "title": "Jibo voice settings",
-        "description": "Choose the conversation agent for Jibo home commands. Assign each Jibo device to an area in Home Assistant for room context. Enable announcements separately in the Phoenix console; they use Jibo's current master volume. Quiet hours use Home Assistant's time zone and may cross midnight. Add an exact routine phrase and an Assist-exposed scene or script; reopen these settings to add another phrase. Routines are reported as started, without claiming their resulting device states.",
+        "description": "Choose the conversation agent for Jibo home commands. The default is Home Assistant’s built-in agent; another agent is used only when explicitly selected. Assign the Jibo device to an area for room context. Allow announcements is a local opt-in; they use Jibo’s current master volume. Quiet hours use Home Assistant’s time zone and may cross midnight. Add an exact routine phrase and an Assist-exposed scene or script; reopen these settings to add another phrase. Routines are reported as started, without claiming their resulting device states.",
         "data": {
           "conversation_agent": "Conversation agent",
           "quiet_hours_enabled": "Enable quiet hours",
@@ -109,7 +187,8 @@
           "quiet_hours_end": "Quiet hours end",
           "shortcut_phrase": "Add routine phrase",
           "shortcut_target": "Routine scene or script",
-          "remove_shortcuts": "Remove routine phrases"
+          "remove_shortcuts": "Remove routine phrases",
+          "allow_announcements": "Allow announcements"
         }
       }
     },
@@ -121,17 +200,44 @@
     }
   },
   "exceptions": {
-    "invalid_message": {"message": "Use a nonempty plain-text announcement of up to 300 characters."},
-    "unsupported_title": {"message": "Jibo announcements accept a message without a title."},
-    "disconnected": {"message": "Phoenix is disconnected. This announcement was not queued."},
-    "unsupported_announcements": {"message": "This Phoenix server does not support Jibo announcements."},
-    "unsupported_robot_announcements": {"message": "Jibo announcements need the native receiver in BE 13.1.2 or later. Room context, home commands, and questions can still use this connection."},
-    "permission_denied": {"message": "Enable announcements for this installation in the Phoenix console."},
-    "quiet_hours": {"message": "Quiet hours are active. This announcement was not sent or queued."},
-    "robot_offline": {"message": "Jibo is offline. This announcement was not queued."},
-    "robot_busy": {"message": "Jibo is busy. This announcement was not queued."},
-    "announcement_expired": {"message": "The announcement expired before it could be spoken."},
-    "confirmation_lost": {"message": "Phoenix could not confirm that Jibo finished speaking. The announcement will not be retried."},
-    "announcement_failed": {"message": "Jibo could not complete the announcement. It will not be retried."}
+    "invalid_message": {
+      "message": "Use a nonempty plain-text announcement of up to 300 characters."
+    },
+    "unsupported_title": {
+      "message": "Jibo announcements accept a message without a title."
+    },
+    "disconnected": {
+      "message": "Jibo’s local connection is disconnected. This announcement was not queued."
+    },
+    "unsupported_announcements": {
+      "message": "This paired Jibo does not support direct announcements."
+    },
+    "unsupported_robot_announcements": {
+      "message": "Direct Jibo announcements need BE 13.2.0 or later and the direct Home Assistant service mode."
+    },
+    "permission_denied": {
+      "message": "Enable Allow announcements in this Jibo’s Phoenix integration options."
+    },
+    "quiet_hours": {
+      "message": "Quiet hours are active. This announcement was not sent or queued."
+    },
+    "robot_offline": {
+      "message": "Jibo is offline. This announcement was not queued."
+    },
+    "robot_busy": {
+      "message": "Jibo is busy. This announcement was not queued."
+    },
+    "announcement_expired": {
+      "message": "The announcement expired before it could be spoken."
+    },
+    "confirmation_lost": {
+      "message": "Home Assistant could not confirm that Jibo finished speaking. The announcement will not be retried."
+    },
+    "announcement_failed": {
+      "message": "Jibo could not complete the announcement. It will not be retried."
+    },
+    "request_storage": {
+      "message": "The local request ledger could not be saved. This announcement was not sent. Repair the integration before trying a new request."
+    }
   }
 }

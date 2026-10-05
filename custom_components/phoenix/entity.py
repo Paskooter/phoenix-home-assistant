@@ -16,15 +16,14 @@ class PhoenixEntity(Entity):
 
     def __init__(self, client: PhoenixClient, key: str) -> None:
         self.client = client
-        self._attr_unique_id = f"{client.entry.data['installation_id']}_{key}"
+        self._attr_unique_id = f"{client.robot_id or client.entry.entry_id}_{key}"
         self._attr_translation_key = key
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, client.entry.unique_id)},
-            name="Phoenix",
-            manufacturer="Phoenix",
-            model="Assist voice connector",
-            sw_version=VERSION,
-            configuration_url=f"{client.entry.data['phoenix_url']}/app#/home-assistant",
+            identifiers={(DOMAIN, client.robot_id or client.entry.unique_id)},
+            name=client.entry.data.get("name", "Phoenix local pairing"),
+            manufacturer="Jibo" if client.robot_id else "Phoenix",
+            model="Jibo" if client.robot_id else "Local pairing required",
+            sw_version=client.entry.data.get("firmware_version", VERSION),
         )
 
     async def async_added_to_hass(self) -> None:
@@ -32,7 +31,7 @@ class PhoenixEntity(Entity):
 
 
 class PhoenixRobotEntity(Entity):
-    """Local entities share the opaque, installation-scoped robot device."""
+    """Local entities share the physically paired robot's stable device."""
 
     _attr_has_entity_name = True
     _attr_should_poll = False
@@ -41,10 +40,10 @@ class PhoenixRobotEntity(Entity):
     def __init__(self, client: PhoenixClient, robot_id: str, key: str) -> None:
         self.client = client
         self.robot_id = robot_id
-        self._attr_unique_id = f"{client.entry.data['installation_id']}_{robot_id}_{key}"
+        self._attr_unique_id = f"{robot_id}_{key}"
         self._attr_translation_key = key
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{client.entry.data['installation_id']}/{robot_id}")},
+            identifiers={(DOMAIN, robot_id)},
             manufacturer="Jibo",
             model="Jibo",
         )

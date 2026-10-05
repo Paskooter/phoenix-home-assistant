@@ -1,6 +1,7 @@
 """Outbound bridge with at-most-once execution and no reconnect replay."""
 
 import asyncio
+import json
 import logging
 import math
 import random
@@ -10,16 +11,14 @@ from contextlib import suppress
 from dataclasses import dataclass
 from datetime import time as local_time
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from aiohttp import (
     ClientError,
-    ClientHandlerType,
-    ClientRequest,
-    ClientResponse,
     ClientSession,
     ClientWebSocketResponse,
     ClientWSTimeout,
+    ServerFingerprintMismatch,
     WSMsgType,
     WSServerHandshakeError,
 )
@@ -31,7 +30,6 @@ from homeassistant.core import Context, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.event import async_call_later
-from homeassistant.helpers.storage import Store
 from homeassistant.util import color as color_util
 from homeassistant.util import dt as dt_util
 
@@ -55,6 +53,7 @@ from .commands import (
 from .const import (
     ANNOUNCEMENT_SECONDS,
     CAPABILITIES,
+    CONF_ALLOW_ANNOUNCEMENTS,
     CONF_CONVERSATION_AGENT,
     CONF_QUIET_HOURS_ENABLED,
     CONF_QUIET_HOURS_END,
@@ -67,11 +66,13 @@ from .const import (
     MAX_ANNOUNCEMENT_CHARS,
     MAX_COMMANDS,
     MAX_FRAME_BYTES,
-    MAX_ROBOTS,
     MAX_SEEN_REQUESTS,
     PROTOCOL_VERSION,
     VERSION,
 )
+from .ledger import RequestLedger
+from .local_api import LocalFingerprint, LocalTLSRejected, canonical_uuid, hexadecimal, normalize_endpoint
+from .telemetry import TELEMETRY_SECONDS, validate_values
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -116,15 +117,6 @@ class PendingAction:
     robot_id: str
     deadline_ms: int
     future: asyncio.Future
-
-
-async def reject_redirects(request: ClientRequest, handler: ClientHandlerType) -> ClientResponse:
-    """Keep the authenticated WebSocket on the configured TLS origin."""
-    response = await handler(request)
-    if response.status in (301, 302, 303, 307, 308):
-        response.close()
-        raise ClientError("Phoenix connector redirects are not allowed")
-    return response
 
 
 def error_result(code: str, outcome: str = "error") -> dict[str, Any]:
@@ -179,7 +171,7 @@ def conversation_result(result: dict[str, Any], hass: HomeAssistant | None = Non
 
 
 class PhoenixClient:
-    """One installation's connector and bounded command tasks."""
+    """One physically paired robot's direct connector and bounded tasks."""
 
     def __init__(
         self,
@@ -193,6 +185,8 @@ class PhoenixClient:
         self.entry = entry
         self.session = session
         self.auth_failed = auth_failed
+        self.robot_id = entry.data.get("robot_id") if entry.data.get("transport") == "local" else None
+        self.generation = entry.data.get("generation")
         self.state = "disconnected"
         self.last_error: str | None = None
         self.listeners: set[Callable[[], None]] = set()
@@ -203,7 +197,13 @@ class PhoenixClient:
         self.commands: dict[str, asyncio.Task] = {}
         self.results: dict[str, dict[str, Any]] = {}
         self.seen: dict[str, int] = {}
-        self.storage: Store[dict[str, int]] = Store(hass, 1, f"phoenix.{entry.data['installation_id']}.requests")
+        self.storage = RequestLedger(hass, entry.entry_id)
+        self._admission_lock = asyncio.Lock()
+        self._storage_failed = False
+        self.telemetry_values: dict[str, Any] = {}
+        self.telemetry_received_at: float | None = None
+        self._last_telemetry_ms: int | None = None
+        self._telemetry_timer: Callable[[], None] | None = None
         self.stopping = False
         self.ready = False
         self.last_connected: float | None = None
@@ -218,6 +218,27 @@ class PhoenixClient:
             self.shortcuts = validate_shortcuts(entry.options.get(CONF_ROUTINE_SHORTCUTS, []))
         except ValueError:
             self.shortcuts = []  # Invalid local options never offer execution shortcuts.
+
+    @callback
+    def initialize_robot(self) -> None:
+        """Register the already paired identity even while its endpoint is offline."""
+        if not self.robot_id:
+            return
+        canonical_uuid(self.robot_id)
+        registry = dr.async_get(self.hass)
+        identifiers = {(DOMAIN, self.robot_id)}
+        existing = registry.async_get_device(identifiers=identifiers)
+        device = registry.async_get_or_create(
+            config_entry_id=self.entry.entry_id,
+            identifiers=identifiers,
+            manufacturer="Jibo",
+            model="Jibo",
+            name=self.entry.data.get("name", "Jibo"),
+            sw_version=self.entry.data.get("firmware_version"),
+        )
+        if existing is None and (area_id := self.entry.data.get("migration_area_id")):
+            registry.async_update_device(device.id, area_id=area_id)
+        self.robots[self.robot_id] = RobotState(self.robot_id, self.entry.data.get("name", "Jibo"), device.id)
 
     @property
     def agent_id(self) -> str:
@@ -248,10 +269,29 @@ class PhoenixClient:
 
     async def async_run(self) -> None:
         """Reconnect transport only. Commands are never queued for reconnect."""
+        if self.entry.data.get("transport") == "pairing_required":
+            self.set_state("pairing_required", "local_pairing_required")
+            return  # Upgraded legacy entries never open a cloud socket.
+        if self.entry.data.get("transport") != "local":
+            self.set_state("authentication_required", "invalid_pairing")
+            self.auth_failed()
+            return
+        try:
+            canonical_uuid(self.robot_id)
+            hexadecimal(self.entry.data["credential"])
+            fingerprint = LocalFingerprint(bytes.fromhex(hexadecimal(self.entry.data["fingerprint"])))
+            endpoint = normalize_endpoint(self.entry.data["host"], self.entry.data["port"])
+            if not isinstance(self.generation, int) or isinstance(self.generation, bool) or self.generation < 1:
+                raise ValueError
+        except ValueError, TypeError, KeyError:
+            self.set_state("authentication_required", "invalid_pairing")
+            self.auth_failed()
+            return
         try:
             self.seen = await self.storage.async_load() or {}
             if not isinstance(self.seen, dict) or any(
-                not isinstance(key, str) or not isinstance(expiry, int) for key, expiry in self.seen.items()
+                not isinstance(key, str) or not isinstance(expiry, int) or isinstance(expiry, bool)
+                for key, expiry in self.seen.items()
             ):
                 raise ValueError("Invalid request storage")
         except Exception:  # A corrupt dedupe store must fail closed.
@@ -264,12 +304,14 @@ class PhoenixClient:
             try:
                 async with asyncio.timeout(10):
                     socket = await self.session.ws_connect(
-                        self.entry.data["phoenix_url"].replace("https://", "wss://", 1) + "/api/home-assistant/connect",
+                        endpoint.replace("https://", "wss://", 1) + "/phoenix/local/v1/connect",
                         headers={"Authorization": f"Bearer {self.entry.data['credential']}"},
+                        ssl=fingerprint,
                         max_msg_size=MAX_FRAME_BYTES,
                         timeout=ClientWSTimeout(ws_close=10),
                         autoping=True,
                         autoclose=True,
+                        heartbeat=10,
                     )
                 async with socket:
                     self.socket = socket
@@ -278,7 +320,7 @@ class PhoenixClient:
                     async with asyncio.timeout(10):
                         message = await socket.receive_json()
                     if not self._welcome(message):
-                        self.set_state("protocol_error", "unsupported_protocol")
+                        self.set_state("protocol_error", "invalid_peer")
                         return
                     await self._send(
                         {
@@ -309,6 +351,10 @@ class PhoenixClient:
                     if socket.close_code == 4002:
                         self.set_state("protocol_error", "connection_replaced")
                         return
+            except ServerFingerprintMismatch, LocalTLSRejected:
+                self.set_state("authentication_required", "certificate_changed")
+                self.auth_failed()
+                return
             except WSServerHandshakeError as err:
                 if err.status in (401, 403):
                     self.set_state("authentication_required", "invalid_auth")
@@ -323,6 +369,7 @@ class PhoenixClient:
                 await self._cancel_commands()
                 self._clear_contexts()
                 self._fail_actions()
+                self._clear_telemetry()
             if not self.stopping:
                 self.set_state("disconnected", "cannot_connect")
                 attempts += 1
@@ -332,8 +379,19 @@ class PhoenixClient:
         if not isinstance(message, dict) or message.get("v") != PROTOCOL_VERSION or message.get("type") != "welcome":
             return False
         try:
-            self.session_id = str(UUID(message["session_id"]))
-            self.session_server_time = int(message["server_time_ms"])
+            self.session_id = canonical_uuid(message["session_id"])
+            server_time = message["server_time_ms"]
+            if (
+                message.get("robot_id") != self.robot_id
+                or message.get("generation") != self.generation
+                or not isinstance(message.get("generation"), int)
+                or isinstance(message.get("generation"), bool)
+                or not isinstance(server_time, int)
+                or isinstance(server_time, bool)
+                or not 0 <= server_time <= 2**53 - 1
+            ):
+                return False
+            self.session_server_time = server_time
             self.session_local_time = asyncio.get_running_loop().time()
             capabilities = message.get("capabilities", [])
             if not isinstance(capabilities, list) or any(not isinstance(item, str) for item in capabilities):
@@ -346,7 +404,13 @@ class PhoenixClient:
     async def _send(self, payload: dict[str, Any]) -> None:
         if self.socket is None or self.socket.closed:
             raise ConnectionError("Disconnected")
-        await self.socket.send_json({"v": PROTOCOL_VERSION, "session_id": self.session_id, **payload})
+        frame = {"v": PROTOCOL_VERSION, "session_id": self.session_id, "generation": self.generation, **payload}
+        if payload.get("type") in ("accepted", "result"):
+            frame["robot_id"] = self.robot_id
+        encoded = json.dumps(frame, ensure_ascii=False, separators=(",", ":"))
+        if len(encoded.encode()) > MAX_FRAME_BYTES:
+            raise ValueError("Frame too large")
+        await self.socket.send_str(encoded)
 
     def _remaining(self, deadline: int) -> float:
         elapsed = asyncio.get_running_loop().time() - self.session_local_time
@@ -356,7 +420,7 @@ class PhoenixClient:
         return self.session_server_time + int((asyncio.get_running_loop().time() - self.session_local_time) * 1000)
 
     async def _send_preferences(self) -> None:
-        if not self.ready or not self.capabilities.intersection(("follow_up", "routine_shortcuts")):
+        if not self.ready:
             return
         now = asyncio.get_running_loop().time()
         shortcuts = (
@@ -371,6 +435,7 @@ class PhoenixClient:
         await self._send(
             {
                 "type": "preferences",
+                "announcements_enabled": self.entry.options.get(CONF_ALLOW_ANNOUNCEMENTS) is True,
                 "shortcuts": shortcuts,
                 "follow_up": [
                     {"robot_id": robot_id, "available": True, "expires_at_ms": context.expires_at_ms}
@@ -454,17 +519,18 @@ class PhoenixClient:
         if "robot_roster" not in self.capabilities:
             raise ValueError("Unnegotiated roster")
         robots = frame.get("robots")
-        if not isinstance(robots, list) or len(robots) > MAX_ROBOTS:
+        if not isinstance(robots, list) or len(robots) != 1:
             raise ValueError("Invalid roster")
         registry = dr.async_get(self.hass)
         next_robots = {}
         for value in robots:
             if not isinstance(value, dict):
                 raise ValueError("Invalid robot")
-            robot_id = str(UUID(value["robot_id"]))
+            robot_id = canonical_uuid(value["robot_id"])
             name = value.get("name")
             if (
-                robot_id in next_robots
+                robot_id != self.robot_id
+                or robot_id in next_robots
                 or not isinstance(name, str)
                 or not 1 <= len(name) <= 100
                 or any(ord(char) < 32 for char in name)
@@ -473,11 +539,11 @@ class PhoenixClient:
                 raise ValueError("Invalid robot")
             device = registry.async_get_or_create(
                 config_entry_id=self.entry.entry_id,
-                identifiers={(DOMAIN, f"{self.entry.data['installation_id']}/{robot_id}")},
+                identifiers={(DOMAIN, robot_id)},
                 manufacturer="Jibo",
                 model="Jibo",
                 name=name,
-                configuration_url=f"{self.entry.data['phoenix_url']}/app#/home-assistant",
+                sw_version=self.entry.data.get("firmware_version"),
             )
             robot = self.robots.get(robot_id) or RobotState(robot_id, name, device.id)
             robot.name, robot.device_id = name, device.id
@@ -500,19 +566,38 @@ class PhoenixClient:
             not isinstance(frame, dict)
             or frame.get("v") != PROTOCOL_VERSION
             or frame.get("session_id") != self.session_id
+            or frame.get("generation") != self.generation
+            or not isinstance(frame.get("generation"), int)
+            or isinstance(frame.get("generation"), bool)
         ):
             raise ValueError("Invalid session")
         if frame.get("type") == "roster":
             self._roster(frame)
-            await self._send_preferences()
             return
         if frame.get("type") == "action_result":
             self._action_result(frame)
             return
+        if frame.get("type") == "telemetry":
+            self._telemetry(frame)
+            return
+        if frame.get("type") == "cancel":
+            request_id = canonical_uuid(frame["request_id"])
+            if frame.get("robot_id") != self.robot_id:
+                raise ValueError("Invalid cancel identity")
+            if task := self.commands.get(request_id):
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+                self._clear_contexts()
+                result = error_result("cancelled", "uncertain")
+                self.results[request_id] = result
+                await self._send({"type": "result", "request_id": request_id, "result": result})
+            return
         if frame.get("type") != "command":
             raise ValueError("Unsupported frame")
-        request_id = str(UUID(frame["request_id"]))
-        robot_id = str(UUID(frame["robot_id"]))
+        request_id = canonical_uuid(frame["request_id"])
+        robot_id = canonical_uuid(frame["robot_id"])
+        if robot_id != self.robot_id:
+            raise ValueError("Invalid robot identity")
         text = frame.get("text")
         deadline = frame.get("deadline_ms")
         if (
@@ -532,7 +617,7 @@ class PhoenixClient:
         if required and required not in self.capabilities:
             raise ValueError("Unnegotiated route")
         if kind == "routine":
-            route = {"kind": kind, "shortcut_id": str(UUID(route["shortcut_id"]))}
+            route = {"kind": kind, "shortcut_id": canonical_uuid(route["shortcut_id"])}
         elif "shortcut_id" in route:
             raise ValueError("Invalid route")
         remaining = self._remaining(deadline)
@@ -557,14 +642,13 @@ class PhoenixClient:
             )
             return
         now_ms = self.session_server_time + int((asyncio.get_running_loop().time() - self.session_local_time) * 1000)
-        self.seen = {key: expiry for key, expiry in self.seen.items() if expiry > now_ms}
         self.results = {key: value for key, value in self.results.items() if key in self.seen}
         if "robot_roster" in self.capabilities and robot_id not in self.robots:
             await self._send({"type": "result", "request_id": request_id, "result": error_result("robot_unavailable")})
             return
         if (
             len(self.commands) + len(self.pending_actions) >= MAX_COMMANDS
-            or len(self.seen) >= MAX_SEEN_REQUESTS
+            or sum(expiry > now_ms for expiry in self.seen.values()) >= MAX_SEEN_REQUESTS
             or robot_id in self._robot_commands
             or any(action.robot_id == robot_id for action in self.pending_actions.values())
         ):
@@ -572,9 +656,8 @@ class PhoenixClient:
             return
         # Persist a tombstone BEFORE acknowledging or executing. On restart,
         # duplicate work gets uncertainty, never an action retry.
-        self.seen[request_id] = deadline + 60_000
         try:
-            await self.storage.async_save(self.seen)
+            await self._persist_admission(request_id, deadline + 60_000)
         except Exception:
             await self._send({"type": "result", "request_id": request_id, "result": error_result("request_storage")})
             return
@@ -593,6 +676,74 @@ class PhoenixClient:
             self._robot_commands.discard(robot_id)
 
         task.add_done_callback(complete)
+
+    @callback
+    def _telemetry(self, frame: dict[str, Any]) -> None:
+        if "telemetry" not in self.capabilities or frame.get("robot_id") != self.robot_id:
+            raise ValueError("Unnegotiated or wrong-robot telemetry")
+        observed = frame.get("observed_at_ms")
+        if not isinstance(observed, int) or isinstance(observed, bool) or not 0 <= observed <= 2**53 - 1:
+            raise ValueError("Invalid telemetry timestamp")
+        values = validate_values(frame.get("values"))
+        age = self._server_now_ms() - observed
+        if (
+            age < -1000
+            or age > TELEMETRY_SECONDS * 1000
+            or (self._last_telemetry_ms is not None and observed < self._last_telemetry_ms)
+        ):
+            self._clear_telemetry()
+            self._notify()
+            return
+        if self._telemetry_timer:
+            self._telemetry_timer()
+        self.telemetry_values = values
+        self._last_telemetry_ms = observed
+        measurement_age = max(age, 0) / 1000
+        self.telemetry_received_at = asyncio.get_running_loop().time() - measurement_age
+
+        @callback
+        def expire(_now) -> None:
+            self._clear_telemetry()
+            self._notify()
+
+        self._telemetry_timer = async_call_later(self.hass, TELEMETRY_SECONDS - measurement_age, expire)
+        self._notify()
+
+    def telemetry_available(self, key: str) -> bool:
+        return bool(
+            self.ready
+            and self.state == "connected"
+            and self.socket is not None
+            and not self.socket.closed
+            and self.telemetry_received_at is not None
+            and asyncio.get_running_loop().time() - self.telemetry_received_at < TELEMETRY_SECONDS
+            and self.telemetry_values.get(key) is not None
+        )
+
+    @callback
+    def _clear_telemetry(self) -> None:
+        if self._telemetry_timer:
+            self._telemetry_timer()
+            self._telemetry_timer = None
+        self.telemetry_received_at = None
+        self._last_telemetry_ms = None
+        self.telemetry_values.clear()
+
+    async def _persist_admission(self, request_id: str, expiry_ms: int) -> None:
+        """Serialize durable inbound/outbound admission; never persist content."""
+        async with self._admission_lock:
+            if self._storage_failed:
+                raise ValueError("Request storage unavailable")
+            now_ms = self._server_now_ms()
+            self.seen = {key: expiry for key, expiry in self.seen.items() if expiry > now_ms}
+            if len(self.seen) >= MAX_SEEN_REQUESTS and request_id not in self.seen:
+                raise ValueError("Request ledger is full")
+            self.seen[request_id] = expiry_ms
+            try:
+                await self.storage.async_save(self.seen)
+            except Exception:
+                self._storage_failed = True
+                raise
 
     async def _execute(
         self,
@@ -850,12 +1001,14 @@ class PhoenixClient:
             self._announcement_error("invalid_message")
         if self.stopping or not self.ready or self.socket is None or self.socket.closed:
             self._announcement_error("disconnected")
+        if self._storage_failed:
+            self._announcement_error("request_storage")
         if "robot_action" not in self.capabilities:
             self._announcement_error("unsupported_announcements")
         robot = self.robots.get(robot_id)
         if robot is None:
             self._announcement_error("permission_denied")
-        if not robot.announcements_allowed:
+        if self.entry.options.get(CONF_ALLOW_ANNOUNCEMENTS) is not True or not robot.announcements_allowed:
             self._announcement_error("permission_denied")
         if not robot.announcements_supported:
             self._announcement_error("unsupported_robot_announcements")
@@ -878,6 +1031,39 @@ class PhoenixClient:
         result = error_result("confirmation_lost", "uncertain")
         try:
             async with asyncio.timeout(ANNOUNCEMENT_SECONDS):
+                try:
+                    await self._persist_admission("announce/" + request_id, deadline + 60_000)
+                except Exception:
+                    result = error_result("request_storage")
+                    self._announcement_error("request_storage")
+                # Disk durability can take time. Recheck live local admission
+                # immediately before the only outgoing action frame.
+                if self.stopping or not self.ready or self.socket is None or self.socket.closed:
+                    result = error_result("disconnected")
+                    self._announcement_error("disconnected")
+                current = self.robots.get(robot_id)
+                if (
+                    current is None
+                    or self.entry.options.get(CONF_ALLOW_ANNOUNCEMENTS) is not True
+                    or not current.announcements_allowed
+                ):
+                    result = error_result("permission_denied")
+                    self._announcement_error("permission_denied")
+                if not current.announcements_supported:
+                    result = error_result("unsupported_robot_announcements")
+                    self._announcement_error("unsupported_robot_announcements")
+                if self._quiet_hours():
+                    result = error_result("quiet_hours")
+                    self._announcement_error("quiet_hours")
+                if not current.online:
+                    result = error_result("robot_offline")
+                    self._announcement_error("robot_offline")
+                if current.busy or robot_id in self._robot_commands:
+                    result = error_result("robot_busy")
+                    self._announcement_error("robot_busy")
+                if self._remaining(deadline) <= 0:
+                    result = error_result("announcement_expired", "expired")
+                    self._announcement_error("announcement_expired")
                 await self._send(
                     {
                         "type": "robot_action",
@@ -922,8 +1108,10 @@ class PhoenixClient:
     def _action_result(self, frame: dict[str, Any]) -> None:
         if "robot_action" not in self.capabilities:
             raise ValueError("Unnegotiated action result")
-        request_id = str(UUID(frame["request_id"]))
-        robot_id = str(UUID(frame["robot_id"]))
+        request_id = canonical_uuid(frame["request_id"])
+        robot_id = canonical_uuid(frame["robot_id"])
+        if robot_id != self.robot_id:
+            raise ValueError("Invalid action robot")
         result = frame.get("result")
         if not isinstance(result, dict) or result.get("outcome") not in ("success", "error", "uncertain", "expired"):
             raise ValueError("Invalid action result")
@@ -990,4 +1178,5 @@ class PhoenixClient:
         self.ready = False
         self._clear_contexts()
         self._fail_actions()
+        self._clear_telemetry()
         self.set_state("disconnected")

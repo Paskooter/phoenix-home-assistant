@@ -10,6 +10,7 @@ async def async_get_config_entry_diagnostics(hass, entry):
     return {
         "integration_version": VERSION,
         "protocol_version": PROTOCOL_VERSION,
+        "transport": "local" if entry.data.get("transport") == "local" else "pairing_required",
         "connection_state": client.state,
         "last_error": client.last_error,
         "active_commands": len(client.commands),

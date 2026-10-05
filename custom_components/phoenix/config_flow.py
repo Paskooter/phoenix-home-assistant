@@ -1,4 +1,4 @@
-"""Owner linking, reauthentication and moving to a self-hosted Phoenix."""
+"""Local physical pairing, re-pairing and migration from the cloud bridge."""
 
 from datetime import time
 from typing import Any
@@ -6,32 +6,46 @@ from uuid import uuid4
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.components import conversation
+from homeassistant.components import conversation, persistent_notification
 from homeassistant.core import callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.storage import Store
 
-from .api import PhoenixError, exchange_code, normalize_url, revoke
-from .commands import exposed, validate_shortcuts
+from .api import PhoenixError, revoke
+from .commands import device_area, exposed, validate_shortcuts
 from .const import (
-    CONF_CODE,
+    CONF_ALLOW_ANNOUNCEMENTS,
     CONF_CONVERSATION_AGENT,
+    CONF_HOST,
+    CONF_INSTALLATION_ID,
+    CONF_LEGACY_DEVICE,
     CONF_PHOENIX_URL,
+    CONF_PORT,
     CONF_QUIET_HOURS_ENABLED,
     CONF_QUIET_HOURS_END,
     CONF_QUIET_HOURS_START,
     CONF_ROUTINE_SHORTCUTS,
     DEFAULT_QUIET_HOURS_END,
     DEFAULT_QUIET_HOURS_START,
-    DEFAULT_URL,
     DOMAIN,
+    LOCAL_PORT,
 )
+from .local_api import PairCandidate, begin_pairing, finish_pairing, normalize_endpoint, verify_pairing
 
 
 class PhoenixConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Exchange a one-time owner code; never request HA credentials."""
+    """Require independent transcript verification and approval on Jibo."""
 
-    VERSION = 1
+    VERSION = 2
+
+    def __init__(self) -> None:
+        self._candidate: PairCandidate | None = None
+        self._old_entry: config_entries.ConfigEntry | None = None
+        self._host = ""
+        self._port = LOCAL_PORT
+        self._legacy_device: str | None = None
 
     @staticmethod
     @callback
@@ -39,53 +53,161 @@ class PhoenixConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return PhoenixOptionsFlow()
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
-        return await self._link("user", user_input)
+        return await self._pair("user", user_input)
 
     async def async_step_reauth(self, _entry_data: dict[str, Any]):
+        self._old_entry = self._get_reauth_entry()
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None):
-        return await self._link("reauth_confirm", user_input)
+        self._old_entry = self._get_reauth_entry()
+        return await self._pair("reauth_confirm", user_input)
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None):
-        return await self._link("reconfigure", user_input)
+        self._old_entry = self._get_reconfigure_entry()
+        if self._old_entry.data.get("transport") == "local":
+            entry = self._old_entry
+            errors = {}
+            if user_input:
+                try:
+                    host, port = user_input[CONF_HOST].strip().lower(), user_input.get(CONF_PORT, LOCAL_PORT)
+                    await verify_pairing(
+                        async_get_clientsession(self.hass),
+                        normalize_endpoint(host, port),
+                        entry.data["fingerprint"],
+                        entry.data["credential"],
+                        entry.data["robot_id"],
+                        entry.data["generation"],
+                    )
+                    return self.async_update_reload_and_abort(entry, data_updates={CONF_HOST: host, CONF_PORT: port})
+                except PhoenixError as err:
+                    errors["base"] = err.code
+            return self.async_show_form(
+                step_id="reconfigure",
+                data_schema=vol.Schema(
+                    {
+                        vol.Required(CONF_HOST, default=entry.data[CONF_HOST]): selector.TextSelector(),
+                        vol.Optional(CONF_PORT, default=entry.data[CONF_PORT]): vol.All(
+                            vol.Coerce(int), vol.Range(min=1, max=65535)
+                        ),
+                    }
+                ),
+                errors=errors,
+            )
+        return await self._pair("reconfigure", user_input)
 
-    async def _link(self, step: str, user_input: dict[str, Any] | None):
+    def _legacy_devices(self):
+        if not self._old_entry or self._old_entry.data.get("transport") != "pairing_required":
+            return {}
+        prefix = str(self._old_entry.data.get(CONF_INSTALLATION_ID, "")) + "/"
+        return {
+            device.id: device
+            for device in dr.async_entries_for_config_entry(dr.async_get(self.hass), self._old_entry.entry_id)
+            if any(domain == DOMAIN and identifier.startswith(prefix) for domain, identifier in device.identifiers)
+        }
+
+    async def _pair(self, step: str, user_input: dict[str, Any] | None):
         errors = {}
-        old_entry = (
-            self._get_reauth_entry()
-            if step == "reauth_confirm"
-            else (self._get_reconfigure_entry() if step == "reconfigure" else None)
-        )
-        default_url = old_entry.data[CONF_PHOENIX_URL] if old_entry else DEFAULT_URL
+        old_entry = self._old_entry
+        legacy_devices = self._legacy_devices()
         if user_input:
+            self._candidate = None  # A new exchange always uses fresh secrets.
             try:
-                url = normalize_url(user_input[CONF_PHOENIX_URL])
-                linked = await exchange_code(async_get_clientsession(self.hass), url, user_input[CONF_CODE])
-                data = {CONF_PHOENIX_URL: url, **linked}
-                unique_id = f"{url}/{linked['installation_id']}"
-                await self.async_set_unique_id(unique_id)
-                self._abort_if_unique_id_configured()
-                if old_entry:
-                    if old_entry.data["credential"] != linked["credential"]:
-                        await revoke(
-                            async_get_clientsession(self.hass),
-                            old_entry.data[CONF_PHOENIX_URL],
-                            old_entry.data["credential"],
-                        )
-                    return self.async_update_reload_and_abort(old_entry, unique_id=unique_id, data=data)
-                return self.async_create_entry(title="Phoenix", data=data)
+                self._host, self._port = user_input[CONF_HOST].strip().lower(), user_input.get(CONF_PORT, LOCAL_PORT)
+                endpoint = normalize_endpoint(self._host, self._port)
+                selected = user_input.get(CONF_LEGACY_DEVICE, "none")
+                if legacy_devices and selected not in ("none", *legacy_devices):
+                    raise PhoenixError("invalid_legacy_device")
+                self._legacy_device = selected if selected in legacy_devices else None
+                candidate = await begin_pairing(async_get_clientsession(self.hass), endpoint)
+                if (
+                    old_entry
+                    and old_entry.data.get("transport") == "local"
+                    and old_entry.unique_id != candidate.robot_id
+                ):
+                    return self.async_abort(reason="wrong_robot")
+                await self.async_set_unique_id(candidate.robot_id)
+                if any(
+                    entry.unique_id == candidate.robot_id and (not old_entry or entry.entry_id != old_entry.entry_id)
+                    for entry in self._async_current_entries()
+                ):
+                    return self.async_abort(reason="already_configured")
+                self._candidate = candidate
+                return await self.async_step_pair_confirm()
             except PhoenixError as err:
                 errors["base"] = err.code
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_PHOENIX_URL, default=default_url): selector.TextSelector(),
-                vol.Required(CONF_CODE): selector.TextSelector(
-                    selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
-                ),
-            }
+        schema = {
+            vol.Required(
+                CONF_HOST, default=old_entry.data.get(CONF_HOST, "") if old_entry else ""
+            ): selector.TextSelector(),
+            vol.Optional(
+                CONF_PORT, default=old_entry.data.get(CONF_PORT, LOCAL_PORT) if old_entry else LOCAL_PORT
+            ): vol.All(vol.Coerce(int), vol.Range(min=1, max=65535)),
+        }
+        if legacy_devices:
+            schema[vol.Required(CONF_LEGACY_DEVICE)] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        {"value": "none", "label": "Do not copy a room"},
+                        *[
+                            {"value": device.id, "label": device.name_by_user or device.name or "Jibo"}
+                            for device in legacy_devices.values()
+                        ],
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            )
+        return self.async_show_form(step_id=step, data_schema=vol.Schema(schema), errors=errors)
+
+    async def async_step_pair_confirm(self, user_input: dict[str, Any] | None = None):
+        """No finish request is sent until the HA owner confirms the visual SAS."""
+        if self._candidate is None:
+            return self.async_abort(reason="pairing_expired")
+        errors = {}
+        if user_input is not None:
+            if user_input.get("confirm_pairing") is not True:
+                errors["base"] = "codes_not_confirmed"
+            else:
+                try:
+                    linked = await finish_pairing(async_get_clientsession(self.hass), self._candidate)
+                    data = {"transport": "local", CONF_HOST: self._host, CONF_PORT: self._port, **linked}
+                    if self._legacy_device:
+                        data["migration_area_id"] = device_area(self.hass, self._legacy_device)
+                    old_entry = self._old_entry
+                    if old_entry:
+                        legacy_installation = old_entry.data.get(CONF_INSTALLATION_ID)
+                        if old_entry.data.get("transport") == "pairing_required" and old_entry.data.get("credential"):
+                            removed = await revoke(
+                                async_get_clientsession(self.hass),
+                                old_entry.data[CONF_PHOENIX_URL],
+                                old_entry.data["credential"],
+                            )
+                            if not removed:
+                                persistent_notification.async_create(
+                                    self.hass,
+                                    "Local pairing is ready. Remove the old Home Assistant installation in your Phoenix "
+                                    "console; the old server was unreachable during cleanup. The local connection "
+                                    "does not use that cloud credential.",
+                                    title="Finish cloud connection cleanup",
+                                    notification_id=f"{DOMAIN}_cloud_cleanup",
+                                )
+                        self._candidate = None
+                        result = self.async_update_reload_and_abort(
+                            old_entry, unique_id=linked["robot_id"], title=linked["name"], data=data
+                        )
+                        if legacy_installation:
+                            await Store(self.hass, 1, f"phoenix.{legacy_installation}.requests").async_remove()
+                        return result
+                    self._candidate = None
+                    return self.async_create_entry(title=linked["name"], data=data)
+                except PhoenixError as err:
+                    errors["base"] = err.code
+        return self.async_show_form(
+            step_id="pair_confirm",
+            data_schema=vol.Schema({vol.Required("confirm_pairing"): selector.BooleanSelector()}),
+            description_placeholders={"code": self._candidate.sas},
+            errors=errors,
         )
-        return self.async_show_form(step_id=step, data_schema=schema, errors=errors)
 
 
 class PhoenixOptionsFlow(config_entries.OptionsFlow):
@@ -111,6 +233,9 @@ class PhoenixOptionsFlow(config_entries.OptionsFlow):
                 try:
                     options = {
                         CONF_CONVERSATION_AGENT: user_input[CONF_CONVERSATION_AGENT],
+                        CONF_ALLOW_ANNOUNCEMENTS: user_input.get(
+                            CONF_ALLOW_ANNOUNCEMENTS, current_options.get(CONF_ALLOW_ANNOUNCEMENTS, False)
+                        ),
                         CONF_QUIET_HOURS_ENABLED: user_input.get(
                             CONF_QUIET_HOURS_ENABLED, current_options.get(CONF_QUIET_HOURS_ENABLED, False)
                         ),
@@ -148,6 +273,9 @@ class PhoenixOptionsFlow(config_entries.OptionsFlow):
             vol.Required(CONF_CONVERSATION_AGENT, default=current): selector.SelectSelector(
                 selector.SelectSelectorConfig(options=choices, mode=selector.SelectSelectorMode.DROPDOWN)
             ),
+            vol.Optional(
+                CONF_ALLOW_ANNOUNCEMENTS, default=current_options.get(CONF_ALLOW_ANNOUNCEMENTS, False)
+            ): selector.BooleanSelector(),
             vol.Optional(
                 CONF_QUIET_HOURS_ENABLED, default=current_options.get(CONF_QUIET_HOURS_ENABLED, False)
             ): selector.BooleanSelector(),

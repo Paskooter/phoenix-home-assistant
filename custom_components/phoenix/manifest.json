@@ -5,9 +5,9 @@
   "config_flow": true,
   "dependencies": ["conversation"],
   "documentation": "https://github.com/Paskooter/phoenix-home-assistant",
-  "integration_type": "service",
-  "iot_class": "cloud_push",
+  "integration_type": "device",
+  "iot_class": "local_push",
   "issue_tracker": "https://github.com/Paskooter/phoenix-home-assistant/issues",
   "requirements": [],
-  "version": "0.2.0b2"
+  "version": "0.3.0b1"
 }

@@ -1,10 +1,10 @@
-"""Native notify.send_message announces through the existing outbound TLS link."""
+"""Native notify.send_message announces over the paired direct TLS link."""
 
 from homeassistant.components.notify import NotifyEntity
 from homeassistant.core import callback
 from homeassistant.exceptions import ServiceValidationError
 
-from .const import DOMAIN, MIN_ANNOUNCEMENT_FIRMWARE
+from .const import CONF_ALLOW_ANNOUNCEMENTS, DOMAIN, MIN_ANNOUNCEMENT_FIRMWARE
 from .entity import PhoenixRobotEntity
 
 
@@ -14,8 +14,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     @callback
     def add_robots() -> None:
-        if "robot_action" not in client.capabilities:
-            return
         new = set(client.robots).difference(added)
         added.update(new)
         async_add_entities([PhoenixAnnouncement(client, robot_id) for robot_id in sorted(new)])
@@ -38,6 +36,7 @@ class PhoenixAnnouncement(PhoenixRobotEntity, NotifyEntity):
             super().available
             and "robot_action" in self.client.capabilities
             and self.robot.online
+            and self.client.entry.options.get(CONF_ALLOW_ANNOUNCEMENTS) is True
             and self.robot.announcements_allowed
             and self.robot.announcements_supported
         )
@@ -47,7 +46,7 @@ class PhoenixAnnouncement(PhoenixRobotEntity, NotifyEntity):
         robot = self.robot
         if not robot or self.client.state != "connected":
             reason = "disconnected"
-        elif not robot.announcements_allowed:
+        elif self.client.entry.options.get(CONF_ALLOW_ANNOUNCEMENTS) is not True or not robot.announcements_allowed:
             reason = "permission_required"
         elif not robot.announcements_supported:
             reason = "firmware_required"

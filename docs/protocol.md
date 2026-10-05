@@ -1,82 +1,122 @@
-# Connector protocol 1
+# Direct pairing v1 and session protocol v2
 
-The integration exchanges a one-time owner code through `POST /api/home-assistant/exchange` with JSON `{"code":"…"}`. The server returns `v: 1`, a UUID `installation_id`, and an opaque `credential`. Use `Authorization: Bearer <credential>` on an outbound `wss://<Phoenix origin>/api/home-assistant/connect` connection. HTTP redirects are refused and TLS certificates are verified. Code exchange is not retried automatically.
+This is the public wire contract for the **0.3.0b1 direct candidate**, BE **13.2.0**, and Services **13.0.8**. It requires implementation review and direct release validation; historical connector-v1 results do not establish this protocol's acceptance.
 
-All WebSocket frames are JSON objects, at most 8192 bytes, with `v: 1`. The server sends a `welcome` with `session_id` (UUID), `server_time_ms`, `heartbeat_ms: 20000`, and optionally `capabilities`. The connector responds with `ready`, the same session ID, `agent: "home_assistant"`, `ha_version`, `integration_version`, and its supported capabilities. The `agent` field identifies the HA connector for protocol-1 compatibility. By default it explicitly passes `conversation.HOME_ASSISTANT_AGENT` to `async_converse` (currently `conversation.home_assistant`). Since 0.1.0b4, an owner may select another installed agent in local HA options; that explicit ID is passed instead. A missing selected agent fails before invocation, without fallback. Existing links remain valid without relinking.
+The transport is HA-initiated TLS 1.2 to a robot on TCP **9443**, using ECDHE-RSA AES-GCM suites. The robot creates a separate RSA-2048/SHA-256 self-signed endpoint certificate and local UUID. HA pins the lowercase SHA-256 of the complete peer DER certificate. Discovery, including mDNS on UDP 5353, supplies addresses only; manual hosts are supported.
 
-The server sends `command` with the session ID, UUID `request_id`, opaque UUID `robot_id`, English `text` of at most 500 characters, `language: "en"`, and absolute server-clock `deadline_ms`. The robot ID is an installation binding, not a robot account or household identifier. The welcome's clock anchor and elapsed monotonic time determine remaining time on the HA side. Server command budgets are 7.5 seconds; a connector rejects a budget over 15 seconds.
+One HA pairing and one active direct socket belong to each robot. Persistent identity and pairing writes must be private, atomic, and durable, reject symlinks, and fail closed on corruption. A paired identity must never regenerate silently.
 
-Before execution the connector persists a bounded request-ID tombstone, then sends `accepted`. It invokes HA locally once. `result` includes request/session IDs and a result object: `outcome` (`success`, `partial`, `error`, `uncertain`, or `expired`), `response_type` (`action_done`, `query_answer`, or `error`), plain `speech` (at most 500 characters), and optional error `code`, success/failed counts, and conversation ID. Phoenix validates correlation and deadlines, ignores late/duplicate results, escapes text using its existing ESML response builder, and never retries an uncertain action.
+## Pairing exchange
 
-Live duplicate IDs return the cached result or acceptance; remembered IDs after reconnect/restart return uncertainty without execution. Expired commands return `expired`. There is at most one pending action per robot and four per connection. No work is replayed after reconnect or restart. Tombstones survive at least until a request deadline plus sixty seconds; after that the original request is already expired.
+Only a native physical owner control may open the **120-second** pairing window or approve a candidate. The window uses monotonic expiry and admits one candidate. A new window or aborted HA flow creates fresh client nonce and claim secret. No HTTP request, cloud RPC, or console action can open or approve this window.
 
-WebSocket ping/pong detects stale connectors independently of voice work. Close `4001` requires reauthentication, `4002` stops a replaced connection, and `4003` stops an incompatible/malformed protocol. Transport loss reconnects with backoff. `DELETE /api/home-assistant/installation` with the credential revokes that installation.
+Define:
 
-A socket or heartbeat is not a Hub voice transaction. Actual Gateway listen/execute/reply work remains in the existing transaction lifecycle, including deployment admission and cancellation. Authorization is derived from verified Gateway robot claims and live Account ownership records. Household IDs in client context or headers confer no access.
+- `H(x)`: lowercase SHA-256 of UTF-8 text.
+- `D`: the literal string `phoenix-local-pair-v1\n`.
+- Nonces, commitment hashes, claim secrets, and certificate fingerprints: strictly 64 lowercase hexadecimal characters.
+- UUID fields: canonical lowercase UUID v4.
 
-Phoenix remains part of the command trust boundary. Its server receives the robot's recognized command text and can originate command frames to the linked installation. TLS and installation credentials authenticate the HA–Phoenix connection; they do not independently prove a physical wake word or the owner's spoken intent, and this is not end-to-end robot–HA authentication or encryption. Operators can see forwarded command text and returned speech. Built-in Assist exposure and the integration's local query/routine checks limit their respective paths; an owner-selected third-party agent uses that agent's own locally configured capabilities and permissions.
+HA generates separate random 32-byte `client_nonce` and `claim_secret`, encoded as hex. Hashing the claim secret means hashing its **hex string**, not the raw bytes.
 
-## Negotiated features in 0.2.0b1
+```text
+claim_hash = H(claim_secret)
+client_commitment = H(D + "client\n" + client_nonce + "\n" + claim_hash)
+```
 
-Features are enabled only when both sides advertise the corresponding capability. A missing `welcome.capabilities` means legacy voice control: HA sends no roster-dependent preferences or reverse requests.
+1. HA observes the actual TLS peer certificate before sending `POST /phoenix/local/v1/pair/begin` with `{v:1, client_commitment, claim_hash}`. This initial certificate is bounded pairing input, not a saved trusted pin.
+2. The robot fixes the candidate's `pair_id`, local `robot_id`, own fingerprint, `server_nonce`, and original commitments before replying:
+   `{v:1, pair_id, robot_id, fingerprint, server_commitment, expires_in:120}`.
+   The returned fingerprint must equal HA's observed peer pin.
+3. HA sends `POST /phoenix/local/v1/pair/reveal` with `{v:1, pair_id, client_nonce}` using that captured pin. The robot verifies the original client commitment and returns `{v:1, pair_id, server_nonce}`.
+4. HA independently verifies the server commitment and calculates the comparison value:
 
-| Capability | Behavior |
+```text
+server_commitment = H(D + "server\n" + fingerprint + "\n" + robot_id + "\n"
+                      + pair_id + "\n" + client_commitment + "\n"
+                      + claim_hash + "\n" + server_nonce)
+sas_digest = H(D + "sas\n" + fingerprint + "\n" + robot_id + "\n"
+               + pair_id + "\n" + client_nonce + "\n"
+               + server_nonce + "\n" + claim_hash)
+```
+
+Interpret the first four digest bytes as an unsigned big-endian integer, take modulo 100,000,000, and display eight zero-padded decimal digits. Both the robot and HA show this SAS. An owner must compare the full number, physically approve the robot's live candidate, and explicitly confirm the match in HA.
+
+Only after HA owner confirmation, send pinned-TLS `POST /phoenix/local/v1/pair/finish` with `{v:1, pair_id, claim_secret}`. The robot requires both the exact live physical approval and `H(claim_secret) == claim_hash`. It persists a new generation and fresh 32-byte operational credential before returning:
+
+```text
+{v:1, robot_id, credential, generation, name, firmware_version}
+```
+
+Pending approval returns HTTP 409/`pairing_pending`; rejection and expiry return HTTP 410/`pairing_rejected` or `pairing_expired`. Invalid claims do not reveal pairing state or credentials. The same exact approved claim may retrieve the same response during the remaining candidate lifetime; it must not create another credential or replacement pairing. Cancel, disconnect, and expiry do not create an operational credential.
+
+`GET /phoenix/local/v1/identity` exposes only a generic name, local UUID, firmware, and protocol version. It cannot authorize pairing or replace an existing pin. `DELETE /phoenix/local/v1/pairing` with the operational bearer credential revokes durably and closes the socket. Physical Forget is independent of HA availability and retains the robot's identity.
+
+## Session negotiation
+
+HA opens:
+
+```text
+wss://<robot-host>:9443/phoenix/local/v1/connect
+Authorization: Bearer <operational credential>
+```
+
+The saved peer certificate pin is required. Every session uses a fresh robot-generated UUID `session_id`. Every JSON frame, including ready, preferences, status, and heartbeat, contains `v:2`, the current `session_id`, and `generation` matching the durable approved pairing. Frames are at most **8192 bytes**. Wrong robot identity, stale generation/session, malformed frames, and unnegotiated routes are rejected.
+
+The robot's `welcome` carries `server_time_ms`, `robot_id`, `generation`, and capabilities. HA's `ready` reports its HA/integration versions and negotiated capabilities, without provider keys.
+
+| Capability | Local behavior |
 | --- | --- |
-| `robot_roster` | Authenticated installation-scoped robot roster and HA devices |
-| `robot_action` | Live reverse announcements and confirmed results |
-| `room_context` | Registered robot `device_id` supplied to conversation processing |
-| `state_queries` | Local read-only state queries |
-| `follow_up` | Thirty seconds of per-robot conversation and resolved-target context |
-| `routine_shortcuts` | Exact owner-configured phrases for Assist-exposed scenes/scripts |
+| `robot_roster` | One paired robot and its HA device |
+| `robot_action` | Opt-in announcements with correlated completion |
+| `room_context` | Registered robot HA device supplies its assigned area |
+| `state_queries` | Read exposed state without executing a conversation agent |
+| `follow_up` | Per-robot context with a maximum thirty-second lifetime |
+| `routine_shortcuts` | Exact owner-selected phrases for exposed scenes/scripts |
+| `telemetry` | Fixed read-only robot measurements on the paired LAN session |
 
-Negotiated commands may include `route: {"kind":"command"|"query"|"follow_up"|"routine"}`. A routine also carries its UUID `shortcut_id`. A legacy command without a route is a normal command. Route metadata carries no household claims, HA entity IDs, area names, conversation IDs, or arbitrary agent prompts.
+The existing ready, preferences, command, accepted, result, cancel, robot_action, action_result, and roster schemas continue with protocol v2 session/identity validation. A roster uses the existing robot fields but contains only the paired local robot UUID. Status/heartbeat runs every **10 seconds** and carries no wake admission or authorization. A persistent socket does not reserve a native voice transaction.
 
-A query route never invokes a conversation agent or device service. It reads only current Assist-exposed states and resolves explicit names/aliases or areas. Supported questions cover on/off, open/closed, lock state, temperature, and humidity. Missing, ambiguous, unexposed, or unavailable targets fail without an executing fallback. Question-shaped follow-ups use the same read-only path.
+## Voice commands and results
 
-Normal commands receive the registered robot's HA device ID, so an owner-assigned HA area supplies room context. Remote text/context cannot assign a room. Bare device-group commands such as "turn on the lights" require that area; an unassigned Jibo cannot silently expand them to all exposed rooms. HA waits for resolved light/switch on/off state changes within the original voice deadline. A scene or script is reported as started, without claiming all its downstream device states.
+The robot sends `command` only through a genuine native, single-use wake gate. State queries require the same admission. Each request has a fresh UUID `request_id`, exact paired `robot_id`, `text` of at most **500 characters**, a negotiated route, and `deadline_ms` bound to the robot session clock. The normal budget is **7500 ms**, and any budget over **15000 ms** is rejected.
 
-## Robot roster and local preferences
+HA persists a request-ID tombstone before `accepted` and execution. It executes locally once, then returns the correlated result. Outcomes retain the existing honest `success`, `partial`, `error`, `uncertain`, and `expired` shapes, with `response_type`, bounded plain `speech`, counts, and optional error code. On/off state confirmation remains within the original voice deadline.
 
-The server sends roster snapshots after negotiation:
+The robot consumes only its matching pending result, rejects late or unsolicited results, escapes returned speech for native ESML, and reports uncertainty after a lost result. Cancellation stops pending admission/work where possible; it does not claim an already issued device action was rolled back. No command is queued or automatically replayed after reconnect or restart.
 
-```json
-{"v":1,"session_id":"<uuid>","type":"roster","robots":[{"robot_id":"<binding-uuid>","name":"Example Jibo","online":true,"busy":false,"announcements_allowed":false,"announcements_supported":false}]}
-```
+Ordinary commands and active-skill replies remain reserved. A query route reads Assist-exposed states without invoking an executing agent or service. Room context comes from the HA device registry, not remote text. Unassigned room-relative commands cannot expand silently to every room.
 
-HA registers one device per opaque binding, preserving its local area across reloads. Names stay in the owner's device registry. Optional `announcements_supported` defaults to false and describes native receiver support independently of ordinary home voice features. A missing receiver must not disable room context, commands, queries, routines, or follow-ups. Announcements require the corrected receiver in BE 13.1.2 or later and explicit owner permission. Physical announcement completion, idle reconnect without replay, and supplied-ASR voice preemption passed on BE 13.1.2; normal-mode reboot and the approved light's on/off regression also passed. Integration 0.2.0b2 corrects the minimum-firmware guidance and exposes a per-robot Announcement status diagnostic sensor even while native notify is unavailable. It reads cached local conditions and does not confirm delivery. Protocol 1 and its capabilities are unchanged, so an installed 0.2.0b1 connector uses the same wire protocol as the receiver correction.
+## Preferences and follow-ups
 
-HA sends bounded preferences only after negotiation:
+Authenticated HA preferences carry `announcements_enabled` as a boolean, each exact shortcut UUID and phrase, and one paired robot's follow-up availability and expiry. Shortcut entity IDs, states, room names, conversation IDs, and target sets remain in HA. The shortcut set is at most sixteen entries with phrases of at most eighty characters and must fit the frame bound.
 
-```json
-{"v":1,"session_id":"<uuid>","type":"preferences","shortcuts":[{"id":"<shortcut-uuid>","phrase":"reading time"}],"follow_up":[{"robot_id":"<binding-uuid>","available":true,"expires_at_ms":1791072030000}]}
-```
+The robot privately revalidates routing, reserved native commands, and fresh local context. Follow-up lifetime is at most **30 seconds** and clears on disconnect/restart and failed or uncertain work. HA rechecks exposure and current device capabilities before using targets.
 
-The global shortcut list has at most sixteen entries; each phrase has at most eighty characters, and the combined serialized phrase list is bounded to leave room for all follow-up hints in the 8192-byte frame. Matching normalizes case, whitespace, a curly apostrophe, and trailing sentence punctuation, then requires an exact match. Ordinary Jibo commands and active-skill answers remain reserved. Local HA entity IDs never leave HA. Owners must configure each phrase and its specific scene/script. HA checks live Assist exposure while offering it and immediately before executing it. An unknown ID or a different phrase cannot select a routine.
+A Phoenix routing declaration in the supported root `context.data.phoenix_local_home` field may contain routing preference/capabilities, an opaque shortcut ID and phrase, and a follow-up hint. It must contain no local endpoint, certificate pin, credential, returned result, or entity state. Cloud hints cannot open a wake admission, extend local expiry, or authorize a request.
 
-Follow-up hints contain no conversation IDs, target IDs, or utterances. Account rechecks the live binding and limits them to thirty seconds. HA retains conversation IDs and successful resolved targets briefly in memory per robot and selected agent. It clears them on expiry, disconnect, unload/restart, agent change, a failed new command, or a new routine. Target reuse rechecks Assist exposure and live light feature capabilities before service dispatch. An unsupported color, temperature, or brightness request leaves the target unchanged. A lost confirmation clears context. No context IDs or utterances are persisted or exported.
+Phoenix ASR still supplies trusted recognized text during an admitted voice turn and sees that utterance. Operator-provided firmware remains trusted. The direct protocol excludes unsolicited cloud action authority; it does not provide offline recognition or full transcript privacy.
 
-The exact follow-ups "make it/them/those dimmer" and "make it/them/those brighter" use only that robot's fresh resolved light targets. Each step changes the observed brightness by 26 on HA's 0–255 scale (approximately ten percentage points), clamped to that range. Every target must already be on, exposed, available, and brightness-supported, with a finite brightness reading within 0–255. HA checks the entire group before dispatch, then issues one absolute brightness call per target and confirms its requested brightness and on/off state within the original command deadline. It never turns on an off light to discover its level. Missing or invalid context and unsupported targets produce no calls; exposure/state changes or lost confirmation after dispatch produce partial success or uncertainty, clear context, and never retry or delegate the phrase to another agent.
+## Local announcements
 
-## Reverse announcements
+HA sends `robot_action` for fixed action `announce`, with the current session, fresh request UUID, paired robot UUID, plain text of at most **300 characters**, and a deadline no longer than **30000 ms**. There is no arbitrary native command, title, or volume field.
 
-Use the native HA action `notify.send_message` with the Jibo announcement entity and plain `message`. The entity is available when the connection, native receiver, robot presence, and explicit permission are available. The separate Announcement status diagnostic sensor keeps local readiness and `minimum_firmware` visible while notify is unavailable, including disconnected, required permission, required firmware, and offline states. Busy and quiet-hours states describe local admission conditions; they do not confirm delivery. Titles are unsupported. Announcements use Jibo's current master volume. Local options set optional quiet hours in HA's time zone. Quiet hours can cross midnight; equal start/end means all day. Older stored volume options are ignored and removed when settings are saved.
+The owner's HA-local **Allow announcements** permission defaults off. The endpoint resets permission to false each session and accepts the saved option through authenticated `preferences.announcements_enabled`; its roster reflects this as `announcements_allowed`. No second portal or robot toggle is required. HA applies quiet hours; the robot checks live admission, presence/busy state, permission, and expiry, persists the admission before speech, and uses its existing owned-speech/stop primitives at the current volume. Native voice/HJ or supported local touch interruption participates in that speech lifecycle.
 
-The integration sends one request over the existing outbound authenticated TLS connection:
+A matching `action_result` acknowledges spoken completion or returns an honest error, expiry, or uncertainty. Lost completion and interrupted speech are not retried. Connection/reboot never replays an announcement. Local announcements and health must remain independent of Phoenix; candidate checks are pending.
 
-```json
-{"v":1,"session_id":"<uuid>","type":"robot_action","request_id":"<uuid>","robot_id":"<binding-uuid>","action":"announce","text":"An invented announcement.","deadline_ms":1791072030000}
-```
+## Robot telemetry
 
-The fixed action is `announce`; text is nonempty plain text of at most 300 characters, and the default deadline is thirty seconds. The server permits at most forty-five seconds. Reverse requests contain no household/account claims, HA credentials, or arbitrary robot commands. The integration sends no volume field and does not change Jibo's master volume. The server rejects any supplied `volume` property with `unsupported_volume` before admitting or dispatching the request.
+Negotiated `telemetry` frames contain the exact session/generation/robot identity, `observed_at_ms` in the monotonic-anchored robot session clock, and a `values` object limited to fourteen scalar measurements. The fifteenth entity, Online, uses live authenticated session health. Native sources are observed locally; a failed source produces null, and a socket loss clears all readings. Normal snapshots run every ten seconds; touch changes and source expiry can publish sooner. HA expires a snapshot after thirty seconds, accounting for its age when received.
 
-Phoenix rechecks the live installation, binding, ownership, permission, receiver, presence, busy state, and deadline. It durably reserves the UUID before dispatch and never replays pending or uncertain work. Expired announcements cannot enter a durable notification queue. Quiet hours, permission, offline, and busy errors reject without queuing.
+The fields are `battery_percent`, `battery_temperature_c`, `camera`, `charging_state`, `cpu_temperature_c`, `fan_percent`, `hatch_open`, `head_touch`, `main_board_temperature_c`, `microphone_rms_db`, `plugged_in`, `sleeping`, `speaker_volume_percent`, and `system_voltage_v`. Temperatures are Celsius; fan and volume are percentages converted from native fractions. Camera reports preview/hatch status, without images. Microphone RMS is a native dB scalar, without audio samples. Unsupported, non-finite, out-of-range, or stale readings are unavailable.
 
-The server returns `action_result` with the same request and robot UUIDs and `result: {"outcome":"success"|"error"|"uncertain"|"expired","code":"optional_error_code","speech":""}`. Success requires confirmed spoken completion from the robot. HA validates both UUIDs and waits only within the live deadline. Its notify timestamp advances only on success. Timeout, disconnect, or lost completion means uncertainty; HA never automatically retries the announcement.
+This capability and its values are excluded from the Phoenix routing declaration. Telemetry cannot open a wake admission, execute a home command, or authorize announcements.
 
-## Lifecycle and diagnostics
+## Legacy migration and removal
 
-All background work and subscriptions belong to the HA config entry. Unloading closes the socket, cancels commands, clears context, and resolves pending announcement uncertainty. Reverse dispatch participates in Phoenix's transaction/deployment lifecycle; roster heartbeats do not.
+A protocol-1 entry upgrades to migration-required state and opens no cloud socket. Options remain, while the owner explicitly selects the old robot device/area association or declines room copying. Local stable robot UUIDs are distinct from cloud bindings; old cloud credentials cannot authenticate local pairing.
 
-Local per-robot sensors show the last result type/outcome, latency, selected agent, and connection status. Downloaded diagnostics include anonymous counts, boolean status, response types/outcomes, and timing only. They exclude credentials, server origins, names, robot/device/request/conversation IDs, target IDs, area names, shortcut phrases, and utterances.
+After successful physical pairing, HA attempts old installation revocation, removes its old cloud credential, and shows manual console cleanup instructions if revocation was offline. Other legacy robots require separate owner-paired entries. Native `direct_enabled` remains sticky independently of credentials: Forget, revocation, reconnect, and restart do not silently reactivate cloud home commands or announcements. There is no cloud fallback.
 
-The integration uses HA's [native notify entity](https://developers.home-assistant.io/docs/core/entity/notify/) and [conversation API](https://developers.home-assistant.io/docs/intent_conversation_api/). Exposure follows HA's [Assist entity exposure controls](https://www.home-assistant.io/voice_control/voice_remote_expose_devices/). Compatibility is checked against actual HA 2026.8.1 and 2026.9.4.
+Entry removal attempts durable local pairing revocation and removes the HA request ledger. Offline removal instructs the owner to use physical Forget. See [installation](installation.md) and [security](security.md).
