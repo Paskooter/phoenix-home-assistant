@@ -213,7 +213,7 @@
       "message": "This paired Jibo does not support direct announcements."
     },
     "unsupported_robot_announcements": {
-      "message": "Direct Jibo announcements need BE 13.2.1 or later and the direct Home Assistant service mode."
+      "message": "Direct Jibo announcements need BE 13.2.2 or later and the direct Home Assistant service mode."
     },
     "permission_denied": {
       "message": "Enable Allow announcements in this Jibo’s Phoenix integration options."

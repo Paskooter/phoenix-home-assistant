@@ -1,11 +1,11 @@
 # Install, pair, upgrade, and remove
 
-These instructions describe the **0.3.0b2 direct candidate**. Direct hardware validation and release review are pending. They apply to compatible reviewed packages when released; the published 0.2.0b2 cloud package cannot create this local pairing.
+These instructions describe the **0.3.0b3 direct candidate**. Direct hardware validation and release review are pending. They apply to compatible reviewed packages when released; the published 0.2.0b2 cloud package cannot create this local pairing.
 
 ## Before installing
 
 - Home Assistant **2026.8.1 or newer**; software checks passed on actual 2026.8.1 and 2026.9.4.
-- Jibo with **BE 13.2.1** and **Services 13.0.8**, using `home_assistant` or `home_assistant_ssh` mode. OS **13.0.7** remains the baseline.
+- Jibo with **BE 13.2.2** and **Services 13.0.8**, using `home_assistant` or `home_assistant_ssh` mode. OS **13.0.7** remains the baseline.
 - HA must reach the robot's local TCP **9443**. Enter its host manually in the candidate flow. Any mDNS/UDP **5353** discovery result is an address suggestion, not authorization.
 - Keep a private HA backup before upgrading. A backup contains credentials and must not be shared.
 

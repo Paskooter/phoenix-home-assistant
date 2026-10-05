@@ -2,7 +2,7 @@
 
 Connect Jibo directly to Home Assistant on your local network. Home Assistant Assist resolves your exposed devices, rooms, questions, and owner-selected routines. The built-in conversation agent is the default; an LLM is optional.
 
-**Direct candidate: 0.3.0b2**, with **BE 13.2.1** and **Services 13.0.8**. Complete firmware packaging and normal startup passed their checks; physical pairing and the direct home-command session still need acceptance. Release review remains pending. The installation instructions below describe the candidate and do not establish that its packages are published. The published [0.2.0b2](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.2.0b2) uses the legacy Phoenix cloud connector; its evidence does not validate the new direct connection. See [release validation](docs/validation.md).
+**Direct candidate: 0.3.0b3**, with **BE 13.2.2** and **Services 13.0.8**. The firmware layout correction, physical pairing and direct home-command session still need acceptance. Release review remains pending. The installation instructions below describe the candidate and do not establish that its packages are published. The published [0.2.0b2](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.2.0b2) uses the legacy Phoenix cloud connector; its evidence does not validate the new direct connection. See [release validation](docs/validation.md).
 
 ## How the direct connection works
 
@@ -20,7 +20,7 @@ Voice recognition continues to use Phoenix, which sees the utterance and supplie
 
 ## Install and pair
 
-The candidate requires Home Assistant **2026.8.1 or newer**, compatible BE **13.2.1**, and Services **13.0.8** in a Home Assistant mode (`home_assistant` or `home_assistant_ssh`). OS **13.0.7** remains the baseline. The updated integration's software checks passed on actual HA 2026.8.1 and 2026.9.4. Corrected BE 13.2.1 passed complete-archive integrity and installed normal-startup checks, including fourteen native measurement fields. Physical pairing, wake, direct commands, speech and the full HA sensor session remain pending.
+The candidate requires Home Assistant **2026.8.1 or newer**, compatible BE **13.2.2**, and Services **13.0.8** in a Home Assistant mode (`home_assistant` or `home_assistant_ssh`). OS **13.0.7** remains the baseline. BE 13.2.1 passed packaging and normal startup, but its physical pairing countdown was clipped by the Cancel button. Comparison and the direct session were not completed. The beta3 integration passed 93 software cases on each actual HA version; the BE 13.2.2 layout correction, packaging and hardware checks remain pending. See [release validation](docs/validation.md) for the artifact-specific evidence.
 
 1. Install the reviewed compatible robot software and integration package when released. In HACS, add `https://github.com/Paskooter/phoenix-home-assistant` as a custom **Integration** repository, enable prereleases, and choose the compatible direct version. Restart HA.
 2. Put HA and Jibo on a network where HA can reach Jibo's TCP 9443. Local mDNS uses UDP 5353; the candidate flow supports manual host entry.

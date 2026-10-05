@@ -1,8 +1,16 @@
 # Release validation
 
-## Direct candidate 0.3.0b2 — acceptance pending
+## Direct candidate 0.3.0b3 — acceptance pending
 
-The direct candidate targets **BE 13.2.1**, **Services 13.0.8**, and baseline **OS 13.0.7**. The updated integration's source checks, CI, and exact extracted-archive lifecycle passed on both supported HA versions. Corrected BE 13.2.1 packaging and installed normal startup also passed. Physical pairing, a genuine native wake, LAN actions, spoken replies and the full physical HA sensor session still need acceptance. Isolated HA checks do not establish those native direct-session results.
+This candidate targets **BE 13.2.2**, **Services 13.0.8**, and baseline **OS 13.0.7**. Its integration change is limited to version metadata and minimum firmware guidance. The other sixteen component files, including wire, pairing, command, action and lifecycle logic, are unchanged. Previous beta1/beta2 archives and evidence remain tied to their original bytes. The exact committed beta3 archive lifecycle proof remains pending.
+
+For **0.3.0b3**, the complete source matrix passed **93/93 on actual HA 2026.8.1 in 132.07 seconds** and **93/93 on HA 2026.9.4 in 140.10 seconds**, with no skips and 81 installed-core/Aiohttp warnings each. Both serial runs included the independent TLS fixture, the pinned private endpoint on official Node 6.5.0, and Jev with provider HTTP intercepted. A socket guard blocked non-loopback connections; there were no unexpected connection attempts. Source bytes stayed unchanged before, between and after runs. Ruff, formatting, translation parity and Node syntax checks passed. These invented-device checks do not establish BE 13.2.2 layout or hardware acceptance.
+
+Physical **Start pairing** on installed BE **13.2.1** opened the screen, but the Cancel button clipped the countdown. The owner did not complete the eight-digit comparison or establish the direct HA session. The corrected **BE 13.2.2** layout, its new tests, complete firmware packaging and hardware acceptance remain pending. A genuine wake, direct light/state/reply behavior and all fifteen HA sensor entities still require a physically paired session.
+
+## Previous direct candidate 0.3.0b2 — physical session incomplete
+
+The previous direct candidate targets **BE 13.2.1**, **Services 13.0.8**, and baseline **OS 13.0.7**. The updated integration's source checks, CI, and exact extracted-archive lifecycle passed on both supported HA versions. Corrected BE 13.2.1 packaging and installed normal startup also passed. Physical pairing, a genuine native wake, LAN actions, spoken replies and the full physical HA sensor session still need acceptance. Isolated HA checks do not establish those native direct-session results.
 
 For **0.3.0b2**, actual Home Assistant **2026.8.1** passed **93/93 tests in 134.63 seconds** and **2026.9.4** passed **93/93 in 146.81 seconds**, with no skips. Each run included the independent Python TLS fixture, the reviewed private endpoint on official **Node 6.5.0**, and the actual Jev SDK with provider HTTP intercepted. Each reported 81 installed-core/Aiohttp warnings. Four focused announcement/status checks also passed on each version, including visible `minimum_firmware: 13.2.1` and blocked requests with no outgoing action. Ruff, formatting, Node syntax, translation parity and unchanged source-byte checks passed. These are invented-device software checks, not installed BE 13.2.1 results.
 
