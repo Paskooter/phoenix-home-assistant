@@ -210,7 +210,7 @@ class SyntheticLocalRobot:
                 "credential": self.credential,
                 "generation": self.generation,
                 "name": self.name,
-                "firmware_version": "13.2.0",
+                "firmware_version": "13.2.1",
             }
         return web.json_response(candidate["result"])
 

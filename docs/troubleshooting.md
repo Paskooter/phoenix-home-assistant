@@ -1,12 +1,13 @@
 # Direct connection troubleshooting
 
-This page covers the **0.3.0b1 direct candidate**. Hardware and release acceptance are pending. The old cloud code/socket instructions apply only to legacy 0.2 releases.
+This page covers the **0.3.0b2 direct candidate**. Hardware and release acceptance are pending. The old cloud code/socket instructions apply only to legacy 0.2 releases.
 
 | Symptom | What to check |
 | --- | --- |
 | Cannot find the robot's address | Check its local network address and compatible Services mode. The candidate HA form accepts a manual host; an mDNS/UDP 5353 result is only a hint and still requires physical pairing and pin validation. |
 | Cannot connect locally | HA must reach the robot on TCP 9443. Check LAN routing, isolation/firewall rules, host, compatible BE/Services, and whether the endpoint is running. Do not expose the port to the Internet. |
 | Pairing unavailable or pending | Open the robot's physical 120-second pairing window. Only one candidate fits that window. Compare and approve on Jibo, then confirm in HA. A cloud code cannot open the window. |
+| Pairing screen closes unexpectedly | BE 13.2.0 exhibited a pairing-screen interruption that canceled the attempt. The corrected BE 13.2.1 target still needs hardware acceptance; use the compatible reviewed release when available. |
 | Eight-digit numbers differ | Cancel. Do not approve either side or save the observed certificate. Start a fresh physical pairing attempt and check the intended robot. |
 | Pairing expired or rejected | Start again from the physical control. Old numbers and pairing material cannot authorize a later window. |
 | Certificate or identity changed | Stop and verify the robot. Discovery cannot replace a stored pin. Use a new physically approved pairing only for an intentional identity/replacement change; never disable certificate checks. |

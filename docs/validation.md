@@ -1,12 +1,20 @@
 # Release validation
 
-## Direct candidate 0.3.0b1 — acceptance pending
+## Direct candidate 0.3.0b2 — acceptance pending
 
-The direct candidate targets **BE 13.2.0**, **Services 13.0.8**, and baseline **OS 13.0.7**. Its software compatibility and complete firmware archive checks passed on 2026-10-05. Installed direct physical pairing, a genuine native wake, LAN actions and spoken replies still need hardware acceptance; HACS/CI and exact integration-archive installation are separate gates.
+The direct candidate targets **BE 13.2.1**, **Services 13.0.8**, and baseline **OS 13.0.7**. The updated integration's source checks passed on both supported HA versions, and its exact archive matches the source. Fresh installation of that archive, corrected firmware packaging, and installed direct physical pairing, a genuine native wake, LAN actions and spoken replies still need acceptance; HACS/CI and integration-archive installation are separate gates.
 
-Actual Home Assistant **2026.8.1** passed **93/93 tests in 139.58 seconds** and **2026.9.4** passed **93/93 in 136.22 seconds**, with no skips. Both runs exercised the actual private TLS endpoint on official **Node 6.5.0**, an independent Python TLS robot fixture, and the actual Jev SDK with provider HTTP intercepted. Devices and identities were invented; no household or paid provider call occurred. Each run reported 81 installed-core/Aiohttp warnings. Ruff, formatting, Node syntax, source equality and diff checks passed.
+For **0.3.0b2**, actual Home Assistant **2026.8.1** passed **93/93 tests in 134.63 seconds** and **2026.9.4** passed **93/93 in 146.81 seconds**, with no skips. Each run included the independent Python TLS fixture, the reviewed private endpoint on official **Node 6.5.0**, and the actual Jev SDK with provider HTTP intercepted. Each reported 81 installed-core/Aiohttp warnings. Four focused announcement/status checks also passed on each version, including visible `minimum_firmware: 13.2.1` and blocked requests with no outgoing action. Ruff, formatting, Node syntax, translation parity and unchanged source-byte checks passed. These are invented-device software checks, not installed BE 13.2.1 results.
 
-The complete robot host suite passed **141/141 tests**. Its 32 native-hook cases and 10 telemetry cases also passed on official Node 6.5.0; the shipped page's 13 startup cases passed there too. The committed BE 13.2.0 tar passed the hash-pinned complete official 11.0.1 gate: **21,590 official files**, **21,617 candidate files**, **27 additions**, no missing official files, and **zero unresolved package entry points**. Its SHA-256 is `5dc858d8b5f94130b4f7a1fce43b73b72deb8b16142f583b7db123fd0d7fbefe`. These checks do not establish installed ARM/Electron acceptance.
+The flat **0.3.0b2** candidate archive contains **20 files / 90,449 bytes**, with SHA-256 `f3b06527a827cb2b081f951ad173d26d39de9d8cbce730bd2375d713978ca712`. Every ZIP member matches the candidate source, and the archive CRC check passed. Its clean extracted-archive lifecycle proof is pending. The previous 0.3.0b1 archive remains unchanged.
+
+The previous **0.3.0b1** integration at source `32c77f5ff452c1de29ba3a0d35a98a87c7ceefc4` passed **93/93 tests in 139.58 seconds** on actual Home Assistant **2026.8.1**, and **93/93 in 136.22 seconds** on **2026.9.4**, with no skips. Both runs exercised the actual private TLS endpoint on official **Node 6.5.0**, an independent Python TLS robot fixture, and the actual Jev SDK with provider HTTP intercepted. Devices and identities were invented; no household or paid provider call occurred. Each run reported 81 installed-core/Aiohttp warnings. Ruff, formatting, Node syntax, source equality and diff checks passed. Migration was tested in this source matrix.
+
+The exact flat **0.3.0b1** archive contains **20 files / 90,781 bytes**, with SHA-256 `0e69bb8a08eb7d51c1a8f0ca25cd921de5fad7181d665ba90cdf138e5c57e0c8`. Every payload matched that source. Fresh extraction, physical-approval protocol checks against an independent synthetic TLS robot, options, unload/reload, a distinct process loading the persisted identity and request ledger, confirmed revocation, and storage removal passed on both actual HA versions. Duplicate requests were not replayed. These archive checks used invented devices and no owner or physical robot; they do not validate the updated 0.3.0b2 archive or native pairing UI.
+
+The superseded **BE 13.2.0** SDK-completion correction passed **146/146 host tests**, including **37 native tests** also run on official Node **6.5.0** through the shipped SDK. Its complete official-archive integrity gate passed. That software evidence did not establish physical acceptance, and it does not validate the new BE 13.2.1 UI correction. Current firmware test counts and archive pins remain pending.
+
+Installed BE **13.2.0** started normally and returned valid native readings for all fourteen measurement fields. During physical pairing, a concurrent Settings view change interrupted the Home Assistant screen and canceled the attempt. The direct path therefore did not complete hardware acceptance. The corrected **13.2.1** pairing UI, complete firmware, and resulting direct HA session still need artifact-pinned acceptance.
 
 On 2026-10-05, the reviewed read-only telemetry provider ran in memory on the designated test robot's actual Electron 1.4.3 / Node 6.5.0 runtime. It returned valid readings for all fourteen measurement fields, including native touch, hatch, preview, and circadian state. Native service source inspection verified Celsius, volts, dB RMS, and fractional fan/volume units. The actual certificate builder also generated a valid local certificate and TLS 1.2 context in memory. These probes installed no firmware, created no pairing, and issued no speech or device action. Online and the full physical HA session still require the direct checks below.
 
@@ -14,7 +22,7 @@ Before release, record artifact-pinned results for the following checks. A passi
 
 | Required direct check | Evidence status |
 | --- | --- |
-| HA minimum/current-version lifecycle and exact release-archive installation | Lifecycle passed on both versions; exact archive pending |
+| HA minimum/current-version lifecycle and exact release-archive installation | Updated 0.3.0b2 source passed on both versions; source-matched archive built, fresh extracted-archive proof pending; historical 0.3.0b1 archive passed |
 | Physical pairing, matching/mismatched eight-digit SAS, cancellation, expiry, replacement, and certificate pinning | Isolated TLS protocol passed; physical approval pending |
 | Legacy migration with cloud socket stopped, preserved agent/routine/quiet-hours options, fresh local announcement opt-in, explicit old device/area choice, and offline cleanup guidance | Passed in isolated HA on both versions |
 | Native wake admission; rejected unsolicited cloud command/query/result and expired/reused requests | Native fake-runtime and actual Node 6.5 endpoint passed; genuine physical wake pending |
@@ -24,7 +32,7 @@ Before release, record artifact-pinned results for the following checks. A passi
 | HA/robot reconnect and normal reboot, durable request admission, corruption fail-closed behavior, and no replay | Isolated restart/storage/reconnect passed; normal physical boot pending |
 | Removal/physical Forget and durable revocation, including offline removal | Isolated API/UI revocation passed; physical Forget pending |
 | All fifteen HA sensor entities, native units, immediate touch, source expiry, and connection loss | Native scalar provider and isolated HA lifecycle passed; physical session pending |
-| Complete committed BE packaging and official-archive integrity gate | Passed: 21,617 files; no official omissions or unresolved mains |
+| Complete committed BE packaging and official-archive integrity gate | Superseded 13.2.0 gate passed; corrected 13.2.1 archive and gate pending |
 
 Phoenix ASR supplies trusted recognized text during an admitted wake turn. Operator-provided firmware and its fixed trust configuration remain trusted. Voice still needs Phoenix and does not gain offline recognition or full transcript privacy.
 

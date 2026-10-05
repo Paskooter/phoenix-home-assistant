@@ -1,6 +1,6 @@
 # Trust and permissions
 
-This document covers the **0.3.0b1 direct candidate** with BE 13.2.0 and Services 13.0.8. Direct hardware and release acceptance are pending. The published 0.2.0b2 cloud connector has a different trust boundary.
+This document covers the **0.3.0b2 direct candidate** with BE 13.2.1 and Services 13.0.8. Direct hardware and release acceptance are pending. The published 0.2.0b2 cloud connector has a different trust boundary.
 
 ## Physical pairing and the local connection
 

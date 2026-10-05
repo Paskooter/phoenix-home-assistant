@@ -1,6 +1,6 @@
 # Direct pairing v1 and session protocol v2
 
-This is the public wire contract for the **0.3.0b1 direct candidate**, BE **13.2.0**, and Services **13.0.8**. It requires implementation review and direct release validation; historical connector-v1 results do not establish this protocol's acceptance.
+This is the public wire contract for the **0.3.0b2 direct candidate**, BE **13.2.1**, and Services **13.0.8**. It requires implementation review and direct release validation; historical connector-v1 results do not establish this protocol's acceptance.
 
 The transport is HA-initiated TLS 1.2 to a robot on TCP **9443**, using ECDHE-RSA AES-GCM suites. The robot creates a separate RSA-2048/SHA-256 self-signed endpoint certificate and local UUID. HA pins the lowercase SHA-256 of the complete peer DER certificate. Discovery, including mDNS on UDP 5353, supplies addresses only; manual hosts are supported.
 

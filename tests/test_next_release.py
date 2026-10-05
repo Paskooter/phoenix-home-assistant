@@ -340,7 +340,7 @@ async def test_local_notify_opt_in_quiet_hours_and_confirmation(hass, robot):
     status = er.async_get(hass).async_get_entity_id("sensor", "phoenix", f"{robot.robot_id}_announcement_status")
     notify = er.async_get(hass).async_get_entity_id("notify", "phoenix", f"{robot.robot_id}_announcement")
     assert hass.states.get(status).state == "permission_required" and hass.states.get(notify).state == "unavailable"
-    assert hass.states.get(status).attributes["minimum_firmware"] == "13.2.0"
+    assert hass.states.get(status).attributes["minimum_firmware"] == "13.2.1"
     with pytest.raises(ServiceValidationError) as error:
         await client.async_announce(robot.robot_id, "Invented message")
     assert error.value.translation_key == "permission_denied" and not robot.speech_calls
@@ -448,7 +448,7 @@ async def test_status_and_local_announcement_preflight_match_without_outgoing_ac
     await robot.roster()
     entity_id = er.async_get(hass).async_get_entity_id("sensor", "phoenix", f"{robot.robot_id}_announcement_status")
     await wait_for(lambda: hass.states.get(entity_id).state == status)
-    assert hass.states.get(entity_id).attributes["minimum_firmware"] == "13.2.0"
+    assert hass.states.get(entity_id).attributes["minimum_firmware"] == "13.2.1"
     with pytest.raises(ServiceValidationError) as error:
         await client.async_announce(robot.robot_id, "Invented blocked announcement")
     assert error.value.translation_key == error_code and not robot.speech_calls

@@ -31,7 +31,7 @@ if (process.argv[2] === '--seed') {
         getTelemetry: function () { return telemetry; }
     };
     var server = new native.LocalHomeServer({ directory: directory, runtime: runtime,
-        host: '127.0.0.1', port: 0, name: 'Invented native Jibo', firmwareVersion: '13.2.0',
+        host: '127.0.0.1', port: 0, name: 'Invented native Jibo', firmwareVersion: '13.2.1',
         getOwnerBinding: function () { return crypto.createHash('sha256').update('invented-owner').digest('hex'); },
         onPairing: function (event) { if (event.phase === 'revealed') pairingEvent = event; } });
     function status() {
