@@ -19,7 +19,7 @@ def _validated(data) -> dict[str, int]:
     for key, expiry in data.items():
         if not isinstance(key, str):
             raise ValueError("Invalid request ledger")
-        request_id = key.removeprefix("announce/")
+        request_id = key.split("/", 1)[1] if key.startswith(("announce/", "control/")) else key
         parsed = UUID(request_id)
         if str(parsed) != request_id or parsed.version != 4:
             raise ValueError("Invalid request ledger")

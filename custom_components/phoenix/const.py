@@ -14,7 +14,7 @@ CONTROL_CAPABILITIES = (
     "follow_up",
     "routine_shortcuts",
 )
-CAPABILITIES = (*CONTROL_CAPABILITIES, "telemetry")
+CAPABILITIES = (*CONTROL_CAPABILITIES, "telemetry", "robot_controls")
 DEFAULT_URL = "https://jibo.io"
 CONF_PHOENIX_URL = "phoenix_url"
 CONF_CODE = "connection_code"
@@ -27,6 +27,12 @@ CONF_ROBOT_ID = "robot_id"
 CONF_FINGERPRINT = "fingerprint"
 CONF_GENERATION = "generation"
 CONF_ALLOW_ANNOUNCEMENTS = "allow_announcements"
+CONF_ALLOW_SCREEN = "allow_screen"
+CONF_ALLOW_RING_LIGHT = "allow_ring_light"
+CONF_ALLOW_AUDIO = "allow_audio"
+CONF_ALLOW_SLEEP = "allow_sleep"
+CONF_ALLOW_SKILLS = "allow_skills"
+CONF_ALLOW_CAMERA = "allow_camera"
 CONF_LEGACY_DEVICE = "legacy_device_id"
 CONF_QUIET_HOURS_ENABLED = "quiet_hours_enabled"
 CONF_QUIET_HOURS_START = "quiet_hours_start"

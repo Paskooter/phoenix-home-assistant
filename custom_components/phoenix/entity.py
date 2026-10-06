@@ -20,10 +20,10 @@ class PhoenixEntity(Entity):
         self._attr_translation_key = key
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, client.robot_id or client.entry.unique_id)},
-            name=client.entry.data.get("name", "Phoenix local pairing"),
+            **({} if client.robot_id else {"name": "Phoenix local pairing"}),
             manufacturer="Jibo" if client.robot_id else "Phoenix",
             model="Jibo" if client.robot_id else "Local pairing required",
-            sw_version=client.entry.data.get("firmware_version", VERSION),
+            **({} if client.robot_id else {"sw_version": VERSION}),
         )
 
     async def async_added_to_hass(self) -> None:

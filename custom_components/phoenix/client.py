@@ -5,10 +5,11 @@ import json
 import logging
 import math
 import random
+import re
 import time
 from collections.abc import Callable
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import time as local_time
 from typing import Any
 from uuid import uuid4
@@ -70,6 +71,16 @@ from .const import (
     PROTOCOL_VERSION,
     VERSION,
 )
+from .controls import (
+    CONTROL_ACTIONS,
+    CONTROL_FEATURES,
+    CONTROL_OPTIONS,
+    CONTROL_SECONDS,
+    CONTROL_STATE_SECONDS,
+    checked_names,
+    validate_action,
+    validate_control_state,
+)
 from .ledger import RequestLedger
 from .local_api import LocalFingerprint, LocalTLSRejected, canonical_uuid, hexadecimal, normalize_endpoint
 from .telemetry import TELEMETRY_SECONDS, validate_values
@@ -88,6 +99,8 @@ class RobotState:
     busy: bool = False
     announcements_allowed: bool = False
     announcements_supported: bool = False
+    controls_supported: set[str] = field(default_factory=set)
+    controls_enabled: set[str] = field(default_factory=set)
     last_response: str | None = None
     last_outcome: str | None = None
     last_error: str | None = None
@@ -117,6 +130,7 @@ class PendingAction:
     robot_id: str
     deadline_ms: int
     future: asyncio.Future
+    action: str = "announce"
 
 
 def error_result(code: str, outcome: str = "error") -> dict[str, Any]:
@@ -204,6 +218,11 @@ class PhoenixClient:
         self.telemetry_received_at: float | None = None
         self._last_telemetry_ms: int | None = None
         self._telemetry_timer: Callable[[], None] | None = None
+        self.control_values: dict[str, Any] = {}
+        self.control_received_at: float | None = None
+        self._last_control_ms: int | None = None
+        self._control_timer: Callable[[], None] | None = None
+        self._camera_timer: Callable[[], None] | None = None
         self.stopping = False
         self.ready = False
         self.last_connected: float | None = None
@@ -227,18 +246,20 @@ class PhoenixClient:
         canonical_uuid(self.robot_id)
         registry = dr.async_get(self.hass)
         identifiers = {(DOMAIN, self.robot_id)}
-        existing = registry.async_get_device(identifiers=identifiers)
+        existing = registry.async_get_device_by_identifier((DOMAIN, self.robot_id), self.entry.entry_id)
         device = registry.async_get_or_create(
             config_entry_id=self.entry.entry_id,
             identifiers=identifiers,
             manufacturer="Jibo",
             model="Jibo",
-            name=self.entry.data.get("name", "Jibo"),
-            sw_version=self.entry.data.get("firmware_version"),
+            name=existing.name if existing and existing.name else self.entry.data.get("name", "Jibo"),
+            sw_version=existing.sw_version
+            if existing and existing.sw_version
+            else self.entry.data.get("firmware_version"),
         )
         if existing is None and (area_id := self.entry.data.get("migration_area_id")):
             registry.async_update_device(device.id, area_id=area_id)
-        self.robots[self.robot_id] = RobotState(self.robot_id, self.entry.data.get("name", "Jibo"), device.id)
+        self.robots[self.robot_id] = RobotState(self.robot_id, device.name or "Jibo", device.id)
 
     @property
     def agent_id(self) -> str:
@@ -370,6 +391,7 @@ class PhoenixClient:
                 self._clear_contexts()
                 self._fail_actions()
                 self._clear_telemetry()
+                self._clear_controls()
             if not self.stopping:
                 self.set_state("disconnected", "cannot_connect")
                 attempts += 1
@@ -436,6 +458,15 @@ class PhoenixClient:
             {
                 "type": "preferences",
                 "announcements_enabled": self.entry.options.get(CONF_ALLOW_ANNOUNCEMENTS) is True,
+                **(
+                    {
+                        "controls_enabled": [
+                            group for group, option in CONTROL_OPTIONS.items() if self.entry.options.get(option) is True
+                        ]
+                    }
+                    if "robot_controls" in self.capabilities
+                    else {}
+                ),
                 "shortcuts": shortcuts,
                 "follow_up": [
                     {"robot_id": robot_id, "available": True, "expires_at_ms": context.expires_at_ms}
@@ -528,6 +559,7 @@ class PhoenixClient:
                 raise ValueError("Invalid robot")
             robot_id = canonical_uuid(value["robot_id"])
             name = value.get("name")
+            firmware = value.get("firmware_version")
             if (
                 robot_id != self.robot_id
                 or robot_id in next_robots
@@ -535,6 +567,14 @@ class PhoenixClient:
                 or not 1 <= len(name) <= 100
                 or any(ord(char) < 32 for char in name)
                 or any(not isinstance(value.get(key), bool) for key in ("online", "busy", "announcements_allowed"))
+                or (
+                    "firmware_version" in value
+                    and (
+                        not isinstance(firmware, str)
+                        or len(firmware) > 32
+                        or re.fullmatch(r"\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.+-]+)?", firmware) is None
+                    )
+                )
             ):
                 raise ValueError("Invalid robot")
             device = registry.async_get_or_create(
@@ -543,7 +583,7 @@ class PhoenixClient:
                 manufacturer="Jibo",
                 model="Jibo",
                 name=name,
-                sw_version=self.entry.data.get("firmware_version"),
+                **({"sw_version": firmware} if firmware is not None else {}),
             )
             robot = self.robots.get(robot_id) or RobotState(robot_id, name, device.id)
             robot.name, robot.device_id = name, device.id
@@ -551,6 +591,16 @@ class PhoenixClient:
             robot.busy = value["busy"]
             robot.announcements_allowed = value["announcements_allowed"]
             robot.announcements_supported = value.get("announcements_supported") is True
+            robot.controls_supported = (
+                checked_names(value.get("controls_supported", []), CONTROL_FEATURES)
+                if "robot_controls" in self.capabilities
+                else set()
+            )
+            robot.controls_enabled = (
+                checked_names(value.get("controls_enabled", []), CONTROL_OPTIONS)
+                if "robot_controls" in self.capabilities
+                else set()
+            )
             next_robots[robot_id] = robot
         for robot_id in set(self.contexts).difference(next_robots):
             self.contexts.pop(robot_id, None)
@@ -579,6 +629,9 @@ class PhoenixClient:
             return
         if frame.get("type") == "telemetry":
             self._telemetry(frame)
+            return
+        if frame.get("type") == "controls_state":
+            self._controls_state(frame)
             return
         if frame.get("type") == "cancel":
             request_id = canonical_uuid(frame["request_id"])
@@ -719,6 +772,263 @@ class PhoenixClient:
             and asyncio.get_running_loop().time() - self.telemetry_received_at < TELEMETRY_SECONDS
             and self.telemetry_values.get(key) is not None
         )
+
+    @callback
+    def _controls_state(self, frame: dict[str, Any]) -> None:
+        """Only authenticated, fresh native observations update control entities."""
+        if "robot_controls" not in self.capabilities or frame.get("robot_id") != self.robot_id:
+            raise ValueError("Unnegotiated or wrong-robot control state")
+        observed = frame.get("observed_at_ms")
+        snapshot = frame.get("state")
+        if (
+            not isinstance(observed, int)
+            or isinstance(observed, bool)
+            or not 0 <= observed <= 2**53 - 1
+            or not isinstance(snapshot, dict)
+        ):
+            raise ValueError("Invalid control state timestamp")
+        values = validate_control_state(snapshot.get("values"))
+        age = self._server_now_ms() - observed
+        if (
+            age < -1000
+            or age >= CONTROL_STATE_SECONDS * 1000
+            or (self._last_control_ms is not None and observed < self._last_control_ms)
+        ):
+            self._clear_controls()
+            self._notify()
+            return
+        if self._control_timer:
+            self._control_timer()
+        self.control_values = values
+        self._last_control_ms = observed
+        measurement_age = max(age, 0) / 1000
+        self.control_received_at = asyncio.get_running_loop().time() - measurement_age
+
+        @callback
+        def expire(_now) -> None:
+            self._clear_controls()
+            self._notify()
+
+        self._control_timer = async_call_later(self.hass, CONTROL_STATE_SECONDS - measurement_age, expire)
+        if self._camera_timer:
+            self._camera_timer()
+            self._camera_timer = None
+        if values.get("camera_active") is True:
+            observed_monotonic = snapshot.get("observed_at_monotonic_ms")
+            expires_monotonic = snapshot["values"].get("camera_expires_at_monotonic_ms")
+            if (
+                isinstance(observed_monotonic, (int, float))
+                and not isinstance(observed_monotonic, bool)
+                and isinstance(expires_monotonic, (int, float))
+                and not isinstance(expires_monotonic, bool)
+                and math.isfinite(observed_monotonic)
+                and math.isfinite(expires_monotonic)
+                and 0 < expires_monotonic - observed_monotonic <= 60_000
+            ):
+                remaining = (expires_monotonic - observed_monotonic) / 1000 - measurement_age
+
+                @callback
+                def expire_camera(_now) -> None:
+                    # The native capture deadline has passed. Require a new
+                    # observation rather than continuing to advertise a stream.
+                    self.control_values["camera_active"] = None
+                    self._camera_timer = None
+                    self._notify()
+
+                if remaining > 0:
+                    self._camera_timer = async_call_later(self.hass, remaining, expire_camera)
+                else:
+                    self.control_values["camera_active"] = None
+            else:
+                self.control_values["camera_active"] = None
+        self._notify()
+
+    def observed_control(self, key: str) -> Any:
+        """Missing/stale state stays unknown; genuine telemetry can provide volume/sleep."""
+        if (
+            self.ready
+            and self.state == "connected"
+            and self.socket is not None
+            and not self.socket.closed
+            and self.control_received_at is not None
+            and asyncio.get_running_loop().time() - self.control_received_at < CONTROL_STATE_SECONDS
+            and self.control_values.get(key) is not None
+        ):
+            return self.control_values[key]
+        if key in ("speaker_volume_percent", "sleeping") and self.telemetry_available(key):
+            return self.telemetry_values[key]
+        return None
+
+    @callback
+    def _clear_controls(self) -> None:
+        if self._control_timer:
+            self._control_timer()
+            self._control_timer = None
+        if self._camera_timer:
+            self._camera_timer()
+            self._camera_timer = None
+        self.control_received_at = None
+        self._last_control_ms = None
+        self.control_values.clear()
+
+    def control_available(self, robot_id: str, feature: str) -> bool:
+        """A feature requires both local opt-in and the native permission acknowledgement."""
+        robot = self.robots.get(robot_id)
+        group = CONTROL_FEATURES.get(feature)
+        return bool(
+            not self.stopping
+            and self.ready
+            and self.state == "connected"
+            and self.socket is not None
+            and not self.socket.closed
+            and "robot_controls" in self.capabilities
+            and "robot_action" in self.capabilities
+            and robot
+            and robot.online
+            and feature in robot.controls_supported
+            and group in robot.controls_enabled
+            and self.entry.options.get(CONTROL_OPTIONS.get(group)) is True
+        )
+
+    def _control_admission_error(
+        self, robot_id: str, feature: str, action: str, request_id: str | None = None
+    ) -> str | None:
+        if self.stopping or not self.ready or self.socket is None or self.socket.closed or self.state != "connected":
+            return "disconnected"
+        if self._storage_failed:
+            return "request_storage"
+        robot = self.robots.get(robot_id)
+        cleanup = action in ("clear_screen", "ring_off", "stop_audio", "pause_audio", "stop_camera", "stop")
+        if (
+            "robot_controls" not in self.capabilities
+            or "robot_action" not in self.capabilities
+            or not robot
+            or (feature not in robot.controls_supported and action != "stop")
+        ):
+            return "unsupported"
+        group = CONTROL_FEATURES[feature]
+        if not cleanup and (
+            self.entry.options.get(CONTROL_OPTIONS[group]) is not True or group not in robot.controls_enabled
+        ):
+            return "permission_denied"
+        if group in ("audio", "skills") and not cleanup and self._quiet_hours():
+            return "quiet_hours"
+        if not robot.online:
+            return "offline"
+        if cleanup or action in ("resume_audio", "wake"):
+            if any(
+                item.robot_id == robot_id
+                and item.action in ("clear_screen", "ring_off", "stop_audio", "pause_audio", "stop_camera", "stop")
+                and key != request_id
+                for key, item in self.pending_actions.items()
+            ):
+                return "busy"
+            return None
+        if (
+            robot.busy
+            or (self.telemetry_available("head_touch") and self.telemetry_values.get("head_touch") is True)
+            or robot_id in self._robot_commands
+            or any(item.robot_id == robot_id and key != request_id for key, item in self.pending_actions.items())
+            or len(self.commands) + len(self.pending_actions) - (request_id in self.pending_actions) >= MAX_COMMANDS
+        ):
+            return "busy"
+        return None
+
+    def _control_error(self, code: str, *, uncertain: bool = False) -> None:
+        if uncertain:
+            raise HomeAssistantError(translation_domain=DOMAIN, translation_key="control_confirmation_lost")
+        reasons = {
+            "disconnected": "Jibo is disconnected",
+            "request_storage": "the local request ledger could not be saved",
+            "unsupported": "this firmware does not support the control",
+            "permission_denied": "enable this control in the Phoenix integration options",
+            "quiet_hours": "quiet hours are active",
+            "offline": "Jibo is offline",
+            "busy": "Jibo is busy or being touched",
+            "expired": "the request expired",
+            "invalid_payload": "the control parameters are invalid or the installed skill catalog is unavailable",
+        }
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="control_unavailable",
+            translation_placeholders={"reason": reasons.get(code, "Jibo could not complete the control")},
+        )
+
+    async def async_control(self, robot_id: str, action: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Persist admission, send exactly once, and wait for native confirmation."""
+        feature = CONTROL_ACTIONS.get(action)
+        if feature is None:
+            self._control_error("unsupported")
+        payload = {} if payload is None else payload
+        try:
+            validate_action(action, payload, self.observed_control("installed_skills"))
+            if action == "resume_audio" and self.observed_control("audio_state") != "paused":
+                raise ValueError("Only paused Home Assistant audio can resume")
+        except ValueError, TypeError, KeyError:
+            self._control_error("invalid_payload")
+        if code := self._control_admission_error(robot_id, feature, action):
+            self._control_error(code)
+        robot = self.robots[robot_id]
+        request_id = str(uuid4())
+        deadline = self._server_now_ms() + CONTROL_SECONDS * 1000
+        pending = PendingAction(robot_id, deadline, asyncio.get_running_loop().create_future(), action)
+        self.pending_actions[request_id] = pending
+        start_time = asyncio.get_running_loop().time()
+        result = error_result("confirmation_lost", "uncertain")
+        try:
+            async with asyncio.timeout(CONTROL_SECONDS):
+                try:
+                    await self._persist_admission("control/" + request_id, deadline + 60_000)
+                except Exception:
+                    result = error_result("request_storage")
+                    self._control_error("request_storage")
+                # Disk admission awaits. Recheck permissions, touch and busy
+                # state before the one outgoing frame, including the catalog.
+                if code := self._control_admission_error(robot_id, feature, action, request_id):
+                    result = error_result(code)
+                    self._control_error(code)
+                try:
+                    validate_action(action, payload, self.observed_control("installed_skills"))
+                    if action == "resume_audio" and self.observed_control("audio_state") != "paused":
+                        raise ValueError("Only paused Home Assistant audio can resume")
+                except ValueError, TypeError, KeyError:
+                    result = error_result("invalid_payload")
+                    self._control_error("invalid_payload")
+                if self._remaining(deadline) <= 0:
+                    result = error_result("expired", "expired")
+                    self._control_error("expired")
+                await self._send(
+                    {
+                        "type": "robot_action",
+                        "request_id": request_id,
+                        "robot_id": robot_id,
+                        "action": action,
+                        "payload": payload,
+                        "deadline_ms": deadline,
+                    }
+                )
+                result = await pending.future
+        except asyncio.CancelledError:
+            raise
+        except ClientError, ConnectionError, RuntimeError, TimeoutError:
+            pass  # The robot may have acted. Never reconnect/replay this request.
+        finally:
+            self.pending_actions.pop(request_id, None)
+            if not pending.future.done():
+                pending.future.cancel()
+            robot.last_response = "control"
+            robot.last_outcome = result["outcome"]
+            robot.last_error = result.get("code")
+            robot.latency_ms = round((asyncio.get_running_loop().time() - start_time) * 1000, 1)
+            self._notify()
+        if result["outcome"] == "success":
+            return result
+        if result["outcome"] == "uncertain":
+            self._control_error("confirmation_lost", uncertain=True)
+        code = {"forbidden": "permission_denied", "revoked": "permission_denied"}.get(
+            result.get("code"), result.get("code")
+        )
+        self._control_error(code)
 
     @callback
     def _clear_telemetry(self) -> None:
@@ -1179,4 +1489,5 @@ class PhoenixClient:
         self._clear_contexts()
         self._fail_actions()
         self._clear_telemetry()
+        self._clear_controls()
         self.set_state("disconnected")

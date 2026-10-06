@@ -18,7 +18,18 @@ from .ledger import RequestLedger
 from .local_api import normalize_endpoint, reject_redirects, revoke_pairing
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR, Platform.NOTIFY]
+PLATFORMS = [
+    Platform.BINARY_SENSOR,
+    Platform.SENSOR,
+    Platform.NOTIFY,
+    Platform.TEXT,
+    Platform.LIGHT,
+    Platform.MEDIA_PLAYER,
+    Platform.SWITCH,
+    Platform.SELECT,
+    Platform.BUTTON,
+    Platform.CAMERA,
+]
 
 
 @dataclass
