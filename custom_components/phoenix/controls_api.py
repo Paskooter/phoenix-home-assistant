@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from aiohttp import ClientError, ClientTimeout
@@ -144,3 +145,40 @@ async def async_camera_image(client, robot_id: str) -> bytes:
                 return data
     except ClientError, ConnectionError, TimeoutError, ValueError, TypeError, KeyError:
         _media_error("control_camera_inactive")
+
+
+@asynccontextmanager
+async def async_camera_video(client, robot_id: str):
+    """Open native continuous WebM once, using the existing pinned local credential."""
+    if (
+        not client.control_available(robot_id, "camera_streaming")
+        or client.observed_control("camera_active") is not True
+    ):
+        _media_error("control_camera_inactive")
+    endpoint, fingerprint, headers = _endpoint(client, "/camera.webm")
+    response = None
+    try:
+        try:
+            response = await client.session.get(
+                endpoint,
+                headers=headers,
+                ssl=fingerprint,
+                allow_redirects=False,
+                timeout=ClientTimeout(total=65, connect=10, sock_read=10),
+            )
+            if response.status != 200 or response.content_type != "video/webm":
+                _media_error("control_camera_inactive")
+            prefix = await response.content.readexactly(4)
+            if (
+                prefix != b"\x1aE\xdf\xa3"
+                or not client.control_available(robot_id, "camera_streaming")
+                or client.observed_control("camera_active") is not True
+            ):
+                _media_error("control_camera_inactive")
+        except ClientError, ConnectionError, TimeoutError, asyncio.IncompleteReadError, ValueError, TypeError, KeyError:
+            _media_error("control_camera_inactive")
+        # Do not translate downstream viewer disconnects into robot errors.
+        yield response, prefix
+    finally:
+        if response is not None:
+            response.close()
