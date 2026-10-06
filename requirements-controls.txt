@@ -1,0 +1,5 @@
+# Exact camera/stream manifest requirements shared by HA 2026.8.1 and 2026.9.4.
+# Isolated tests disable HA's package installer, so these must exist at import.
+PyTurboJPEG==1.8.3
+av==17.0.1
+numpy==2.3.2
