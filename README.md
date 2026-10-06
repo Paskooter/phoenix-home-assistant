@@ -2,7 +2,7 @@
 
 Connect Jibo directly to Home Assistant on your local network. Home Assistant Assist resolves your exposed devices, rooms, questions, and owner-selected routines. The built-in conversation agent is the default; an LLM is optional.
 
-**Direct candidate: 0.3.0b3**, with **BE 13.2.2** and **Services 13.0.8**. The firmware layout correction, physical pairing and direct home-command session still need acceptance. Release review remains pending. The installation instructions below describe the candidate and do not establish that its packages are published. The published [0.2.0b2](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.2.0b2) uses the legacy Phoenix cloud connector; its evidence does not validate the new direct connection. See [release validation](docs/validation.md).
+**Direct beta: 0.3.0b3**, with **BE 13.2.2** and **Services 13.0.8**. Physical pairing, genuine voice-controlled light on/off, ordinary Jibo speech, and all 15 live robot sensors passed on the paired local connection. See [release validation](docs/validation.md) for tested versions and the remaining limits. The older [0.2.0b2](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.2.0b2) uses the legacy Phoenix cloud connector.
 
 ## How the direct connection works
 
@@ -14,20 +14,20 @@ flowchart LR
     H["Home Assistant"] <-->|"Paired TLS connection on the LAN"| J
 ```
 
-Jibo admits each home command through its native wake lifecycle before sending it directly to HA. Device state, returned home results, pairing credentials, and the local connection stay on that path. Home Assistant's local announcements and connection health are intended to continue during a Phoenix restart; this still needs candidate validation.
+Jibo admits each home command through its native wake lifecycle before sending it directly to HA. Device state, returned home results, pairing credentials, and the local connection stay on that path. The LAN connection does not depend on Phoenix. Physical announcement and connection-continuity testing during a Phoenix restart is outside this beta's hardware acceptance.
 
 Voice recognition continues to use Phoenix, which sees the utterance and supplies the trusted recognized text during a native voice turn. Operator-provided firmware remains trusted too. Voice still needs Phoenix; local pairing does not provide offline recognition or full transcript privacy. See [trust and permissions](docs/security.md).
 
 ## Install and pair
 
-The candidate requires Home Assistant **2026.8.1 or newer**, compatible BE **13.2.2**, and Services **13.0.8** in a Home Assistant mode (`home_assistant` or `home_assistant_ssh`). OS **13.0.7** remains the baseline. BE 13.2.1 passed packaging and normal startup, but its physical pairing countdown was clipped by the Cancel button. The corrected BE 13.2.2 passed complete packaging, a native update, normal startup, all 21 installed source checks and fourteen native measurements. The beta3 archive passed installation and lifecycle checks on both HA versions. The corrected physical pairing screen and the direct HA session still need acceptance. See [release validation](docs/validation.md) for the artifact-specific evidence.
+This beta requires Home Assistant **2026.8.1 or newer**, BE **13.2.2**, and Services **13.0.8** in a Home Assistant mode (`home_assistant` or `home_assistant_ssh`). OS **13.0.7** remains the baseline. Software and extracted-archive lifecycle checks passed on **HA 2026.8.1 and 2026.9.4**; the physical direct session passed on **2026.9.4**. BE 13.2.2 passed complete packaging, a native update, normal startup, and all 21 installed source checks. See [release validation](docs/validation.md) for the artifact-specific evidence.
 
-1. Install the reviewed compatible robot software and integration package when released. In HACS, add `https://github.com/Paskooter/phoenix-home-assistant` as a custom **Integration** repository, enable prereleases, and choose the compatible direct version. Restart HA.
-2. Put HA and Jibo on a network where HA can reach Jibo's TCP 9443. Local mDNS uses UDP 5353; the candidate flow supports manual host entry.
-3. On Jibo, open **Settings → Home Assistant → Start pairing** and follow the on-screen instructions. The pairing window lasts **120 seconds**.
-4. In **Settings → Devices & services → Add integration → Phoenix**, enter Jibo's local host and port.
+1. Update Jibo to the compatible robot software. In HACS, add `https://github.com/Paskooter/phoenix-home-assistant` as a custom **Integration** repository, enable prereleases, and select **0.3.0b3**. Restart HA.
+2. Put HA and Jibo on a network where HA can reach Jibo's TCP 9443. Local mDNS uses UDP 5353; the flow supports manual host entry.
+3. Prepare the HA form at **Settings → Devices & services → Add integration → Phoenix** before starting the timed pairing.
+4. On Jibo, open **Settings → Home Assistant → Start pairing**, then enter its displayed local host and port in HA. The pairing window lasts **120 seconds**.
 5. Compare all **eight digits** shown by Jibo and HA. If they match, approve on Jibo and confirm the match in HA. Cancel if they differ or you did not start the pairing.
-6. Assign the paired Jibo device to an HA **Area**, then expose the devices you want through **Settings → Voice assistants → Expose**.
+6. Choose **Done** and leave Settings so Jibo shows his normal face. Assign the paired Jibo device to an HA **Area**, then expose the devices you want through **Settings → Voice assistants → Expose**.
 
 Pairing needs no Phoenix console code, jibo.io password, or HA access token. One robot accepts one HA pairing. Pairing a replacement revokes its old connection. Do not expose TCP 9443 or mDNS to the Internet.
 
@@ -89,7 +89,7 @@ HA converts native Celsius temperatures to your preferred display unit. Missing 
 
 ## Announcements from HA
 
-Announcements are **off by default**. Enable the candidate's local **Allow announcements** option in **Phoenix → Configure** when you want automations to speak through this robot. Direct permission is local; the legacy console permission does not enable it, and there is no second robot toggle. Each new local session starts with permission off until authenticated HA preferences apply the saved option.
+Announcements are **off by default**. Enable the local **Allow announcements** option in **Phoenix → Configure** when you want automations to speak through this robot. Direct permission is local; the legacy console permission does not enable it, and there is no second robot toggle. Each new local session starts with permission off until authenticated HA preferences apply the saved option. The direct announcement path passed software checks; physical playback and interruption have not been retested on this direct beta.
 
 Choose optional quiet hours in the same options. They use HA's time zone and may cross midnight. Announcements use Jibo's current volume; there is no per-announcement volume setting.
 
@@ -121,4 +121,4 @@ Removing the HA entry attempts to revoke the local pairing and removes its local
 
 ## Development and evidence
 
-[Protocol](docs/protocol.md) documents the candidate wire contract. [Security](docs/security.md) explains its trust boundary. [Validation](docs/validation.md) separates pending direct release checks from historical cloud-connector evidence. Public fixtures use invented devices and identities; private captures and household storage stay out of Git.
+[Protocol](docs/protocol.md) documents the wire contract. [Security](docs/security.md) explains its trust boundary. [Validation](docs/validation.md) separates direct hardware and software results from historical cloud-connector evidence. Public fixtures use invented devices and identities; private captures and household storage stay out of Git.
