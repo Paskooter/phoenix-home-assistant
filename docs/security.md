@@ -26,7 +26,7 @@ Announcements, screen, ring, audio, sleep, installed skills and camera are indep
 
 Controls use a closed action schema. They accept no shell command, JavaScript, arbitrary SDK method or robot-fetched URL. Images and WAV files must come from HA's configured local media directories: symlinks, path escapes, redirects, web URLs and remote sources are rejected. Bounded uploads use pinned TLS, remain in memory, expire if unused and are consumed once.
 
-Camera capture requires an explicitly started session, a visible notice, idle native state and a fresh closed-hatch reading. A session expires within 60 seconds. Opening a card never starts capture. The supported preview path does not save images to the gallery and exports no microphone audio. Touch, hatch opening, a new voice turn, native preemption, disconnect and revocation stop owned resources.
+Camera capture requires an explicitly started session, a visible notice, idle native state and a fresh closed-hatch reading. A session expires within 60 seconds. Opening a card never starts capture. Native video is relayed from a fixed loopback-only hardware encoder over the paired TLS endpoint. The snapshot and video paths do not save images to the gallery and export no microphone audio. Restart recovery stops a durably marked capture; it never restarts one. Touch, hatch opening, a new voice turn, native preemption, disconnect and revocation stop owned resources.
 
 ## Failure and revocation
 

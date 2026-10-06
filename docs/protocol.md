@@ -49,7 +49,12 @@ No action accepts a URL, file path, shell command, JavaScript or arbitrary SDK m
 
 `POST /phoenix/local/v1/media` uses the paired bearer credential over pinned TLS. It requires a fixed Content-Length and supported content type: PNG/JPEG up to 1 MiB, or PCM16 WAV up to 8 MiB and 60 seconds. Image dimensions are limited to 1280 × 720. At most two uploads are retained. Media stays in memory for at most 60 seconds and is consumed once. HTTP 201 returns a random `media_id`, exact `content_type` and `size`; a control payload refers only to that ID. Disconnect, revocation and removed permission discard unused media. HA resolves only its configured local Media directories and rejects symlinks, path escapes, redirects and remote media.
 
-`GET /phoenix/local/v1/camera.jpg` requires the same pairing and camera permission. It reads only an already explicitly started visible preview session. It never starts capture. The native adapter requires idle state and a fresh closed-hatch observation, limits snapshots to one per second and uses a fixed loopback preview path without saving gallery photos. Sessions expire within 60 seconds and stop on touch, hatch opening, native preemption, disconnect or revocation. Returned JPEGs are bounded and marked no-store. HA exposes still-image MJPEG rather than full-rate video or microphone data.
+`GET /phoenix/local/v1/camera.jpg` requires the same pairing and camera permission. It reads only an already explicitly started visible session and never starts capture. JPEG snapshots are bounded to 1 MiB, limited to one fresh native frame per second and marked no-store. The fixed loopback preview path does not save gallery photos.
+
+`GET /phoenix/local/v1/camera.webm` authenticates identically and supplies native continuous, video-only VP8/WebM. The native hardware encoder listens only on loopback TCP 5000, reached by the robot's fixed internal media service. The broker exposes no raw LAN stream or arbitrary URL. At most two readers are admitted; backpressure bounds buffering. HA validates WebM and feeds its FFmpeg decoder through stdin, with no robot URL or credential in the process arguments, then serves live MJPEG through the authenticated HA camera route.
+
+Both reads require idle state, a fresh closed-hatch observation and the visible notice. Sessions expire within 60 seconds and stop on touch, hatch opening, native preemption, disconnect or revocation. Dashboard viewing never starts or renews a session. A durable local marker precedes native video start; startup recovery stops a marked orphan instead of replaying capture. No microphone audio or gallery access is exported.
+
 
 ## Reliability and lifecycle
 

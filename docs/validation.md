@@ -2,8 +2,10 @@
 
 ## 0.4.0b1 / BE 13.3.0 candidate
 
-The integration passed **123/123 tests on actual Home Assistant 2026.8.1** and
-**123/123 on 2026.9.4**, using Python **3.14.8**, with no skips. Both runs included
+The integration passed **137/137 tests on actual Home Assistant 2026.8.1** and
+**137 test cases on 2026.9.4**, using Python **3.14.8**, with no skips. The first full HA 2026.9.4 run passed 136 cases; one
+post-dispatch case expired before its fixture action under shared host load.
+All four post-dispatch variants then passed in isolation. Both matrices included
 real built-in conversation processing, the actual optional Jev SDK with provider
 HTTP intercepted, synthetic TLS peers and the private native robot endpoint
 running on official **Node 6.5.0**. No paid provider or household action occurred.
@@ -26,28 +28,54 @@ remote URLs, redirects, lost responses, no replay, unload timers and name change
 Native nickname/four-word name updates preserve HA's explicit user name, area,
 entity IDs and pairing across reload.
 
-BE passed **211/211 native host tests**. The new runtime modules parse on actual
+The continuous-camera tests use Home Assistant's authenticated camera HTTP
+route and a moving VP8 fixture. They verify multiple decoded JPEG frames without
+snapshot polling, two-viewer limits, malformed video rejection and decoder
+cleanup on disconnect, permission removal, unload, HA shutdown and deadlines.
+
+BE passed **230/230 native host tests**, including the combined JEV routing and
+single-code UI checks. The new runtime modules parse on actual
 Node **6.5.0**; unchanged vendor-wrapper tests verify native view, media and sound
 contracts. The complete committed BE tree supplied the build. Its official
-11.0.1 integrity gate reports **21,590 official files**, **21,628 candidate files**,
-**38 additions**, **zero missing files** and **zero unresolved package mains**.
-The 173,383,680-byte candidate's SHA-256 is
-`3ba1b7ed710f77e9910bf50d03e5276639db68f39f3da1c825a98648711dddfa`.
+11.0.1 integrity gate reports **21,590 official files**, **21,629 candidate files**,
+**39 additions**, **zero missing files** and **zero unresolved package mains**.
+The 173,393,920-byte candidate's SHA-256 is
+`cc36cdcc139967a264d0eaf531006be05c3da99c48aa54440e934b09bdf93582`.
 The official archive is only the integrity reference, never an extracted build
 base. BE source and artifacts remain in their separate private project.
 
 The candidate was copied to the designated test robot over SSH and launched
 through its native System Manager. The actual renderer returned to idle on
-BE 13.3.0; all 13 checked runtime files matched the committed build, and the
+BE 13.3.0; checked runtime files matched the committed build, and the
 existing paired identity, credential, certificate and profile were preserved.
 Its initialized native adapter advertised all eight control capabilities and
 the four installed skill choices. The public OTA offer was not changed by this
 development launch.
 
+On the same combined build, developer checks exercised native TextView and
+ImageView rendering with private screen captures, ring animation and release,
+the unchanged master volume, local WAV playback/pause/resume/stop, sleep/wake,
+Clock launch/stop and explicit camera start/stop. Text and image admission took
+638 ms and 598 ms; Clock admission took 251 ms; camera start took 787 ms. These
+measure native action acknowledgements, not human-perceived or full voice latency.
+The robot returned to idle with owned screen, ring, audio and camera resources
+released and master volume preserved.
+
+Continuous capture produced a **1280×720 VP8 video-only WebM** on the robot.
+The combined-build sample decoded **118 frames** with FFmpeg. Its native TCP
+listener was verified to bind only to loopback; stop closed readers and cleared
+the durable ownership marker. This proves real camera video, separately from
+the synthetic HA decoding test. The read-only routing check also confirmed the
+JEV fallback was loaded, native light routing worked, delayed actions were
+refused and an ordinary time question retained its normal route. A later
+owner-reported shutdown/home-command conflict was reproduced in the actual
+Jibo SDK and corrected: an admitted home turn suppresses late cloud actions,
+redirects and duplicate results for its exact transaction, while ordinary
+requests to turn Jibo himself off retain their native route.
+
 Ruff, formatting, JavaScript syntax, translation parity and archive/lifecycle
-checks are release checks. Final candidate publication and new physical controls
-acceptance are still pending. The source supports these controls, but this file
-does not report an unperformed hardware test or invent physical latency.
+checks are release checks. Developer hardware checks do not establish owner
+acceptance of the new HA camera card, physical pairing flow or audible output.
 
 ## Previous 0.3.0b3 hardware baseline
 
@@ -68,17 +96,18 @@ The published baseline is [0.3.0b3](https://github.com/Paskooter/phoenix-home-as
 Its [public CI](https://github.com/Paskooter/phoenix-home-assistant/actions/runs/37412507116)
 passed HACS, hassfest and both supported HA versions. That hardware evidence does
 not by itself validate the new single-code screen, display/media controls or
-camera preview.
+new controls or continuous video.
 
 ## Limits and remaining physical checks
 
-New pairing layout/completion, native text/image rendering, actual audio/ring
-output, direct announcement interruption, sleep/skill controls, camera preview
-quality/hatch stop and connection continuity through server restart require
-candidate-specific physical evidence. Existing local pairing preservation and
-normal candidate startup have been verified on the designated robot.
+Owner confirmation of the new single-code screen/completion, audible output,
+physical touch/hatch interruption and the complete 0.4.0b1 HA camera-card path
+remain outstanding. A fresh human voice turn with the combined JEV build also
+remains separate from the earlier owner-confirmed voice baseline. Developer
+hardware checks verified pairing preservation, normal startup and the native
+controls described above.
 
-No full-rate video, stereo-camera stream, microphone stream, arbitrary Nimbus
-execution or weather action from HA is claimed. Existing ordinary Jibo weather
+No stereo-camera stream, microphone stream, arbitrary Nimbus execution or
+weather action from HA is claimed. Existing ordinary Jibo weather
 speech retains its normal path. Public fixtures are invented; private household
 captures, device identities, credentials and media are excluded from Git.

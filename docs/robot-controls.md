@@ -78,17 +78,18 @@ launch or arbitrary Nimbus/script-execution action in this release.
 integration. It stays available during owned activity and with permissions off.
 It does not stop somebody else's active robot skill or undo a home-device action.
 
-## Camera preview
+## Camera video
 
-Enable **Allow explicit camera preview sessions**, then use **Camera: Turn on**
-with Jibo's **Camera preview** entity. Every session lasts at most 60 seconds.
+Enable **Allow live camera sessions**, then use **Camera: Turn on**
+with Jibo's **Camera** entity. Every session lasts at most 60 seconds.
 Jibo must be idle with his hatch closed and a fresh native hatch reading. His
 screen visibly says **Home Assistant camera is on**.
 
-The card provides bounded JPEG snapshots and still-image MJPEG streaming, with
-at most one new native frame per second. It uses the supported camera preview
-API. It supplies neither full-rate video nor stereo/microphone streaming, and
-does not store photos in Jibo's gallery.
+The camera entity receives native continuous VP8/WebM video over the paired
+TLS connection. Home Assistant uses its FFmpeg decoder to display an MJPEG
+feed at up to 15 frames per second. JPEG snapshots remain available. Native
+video is video-only: no microphone audio, stereo feed or gallery access is
+provided. Video is never saved on Jibo by this integration.
 
 Opening a dashboard or requesting a picture cannot activate capture. Touching
 Jibo's head, opening his hatch, a new voice turn or native activity, stopping the

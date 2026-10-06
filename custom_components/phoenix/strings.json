@@ -133,7 +133,7 @@
         "name": "Battery temperature"
       },
       "camera": {
-        "name": "Camera",
+        "name": "Camera activity",
         "state": {
           "idle": "Idle",
           "active": "Active",
@@ -206,7 +206,7 @@
     },
     "camera": {
       "camera": {
-        "name": "Camera preview"
+        "name": "Camera"
       }
     }
   },
@@ -229,7 +229,7 @@
           "allow_audio": "Allow speaker volume and local audio playback",
           "allow_sleep": "Allow sleep and wake",
           "allow_skills": "Allow supported installed skills",
-          "allow_camera": "Allow explicit camera preview sessions"
+          "allow_camera": "Allow live camera sessions"
         }
       }
     },
@@ -293,7 +293,7 @@
       "message": "The local media upload could not be confirmed. Playback or display was not requested."
     },
     "control_camera_inactive": {
-      "message": "Start the Camera preview explicitly with camera.turn_on. Camera permission, a closed hatch and an idle Jibo are required; each session lasts at most 60 seconds."
+      "message": "Start Camera explicitly with camera.turn_on. Camera permission, a closed hatch and an idle Jibo are required; each session lasts at most 60 seconds."
     }
   },
   "services": {

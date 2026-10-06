@@ -19,7 +19,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 class PhoenixCamera(PhoenixControlEntity, Camera):
     """A dashboard reads an active capture; camera.turn_on starts a 60-second session."""
 
-    _attr_name = "Camera preview"
+    _attr_name = "Camera"
     _attr_supported_features = CameraEntityFeature.ON_OFF
     _attr_brand = "Jibo"
     _attr_model = "Jibo"

@@ -25,6 +25,7 @@ jobs:
           repository: Paskooter/ha-conversation-jev
           ref: v0.3.0b1
           path: jev-fork
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: python -m pip install homeassistant==${{ matrix.homeassistant }} -r requirements-test.txt -r requirements-controls.txt -r requirements-conversation-${{ matrix.homeassistant }}.txt -r jev-fork/requirements-dev.txt
       - run: node --check tests/direct_node_backend.cjs
       - run: ruff check custom_components tests

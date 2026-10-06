@@ -37,7 +37,7 @@
 </p>
 
 > [!NOTE]
-> **0.4.0b1 adds single-code setup and opt-in robot controls.** Its software checks passed on HA 2026.8.1 and 2026.9.4, and BE 13.3.0 starts normally on the test robot while preserving its existing pairing. New controls are undergoing physical acceptance. The preceding 0.3.0b3 passed physical pairing, genuine voice-controlled light on/off and all 15 live sensors. [See the exact evidence](docs/validation.md).
+> **0.4.0b1 adds single-code setup and opt-in robot controls.** Its software checks passed on HA 2026.8.1 and 2026.9.4, and BE 13.3.0 starts normally on the test robot while preserving its existing pairing. Native screen text/images, ring, volume, audio, sleep/wake, Clock and continuous video have been exercised on the test robot. The full HA installation and physical pairing checks remain separate from developer hardware checks. The preceding 0.3.0b3 passed physical pairing, genuine voice-controlled light on/off and all 15 live sensors. [See the exact evidence](docs/validation.md).
 
 ## What Jibo can do
 
@@ -199,18 +199,18 @@ In **Phoenix → Configure**, enable only the controls you want. Screen, ring, a
 | Sleep | Native sleep and wake handlers; no synthetic wake phrase |
 | Start installed skill | Clock, Radio stations, Yoga and Word of the day when installed |
 | Stop Home Assistant activity | Stop only activity opened by this integration; available even during owned work |
-| Camera preview | Explicit, visible sessions up to 60 seconds, with hatch protection and bounded still-image MJPEG |
+| Camera | Native continuous video, decoded by HA into live MJPEG; explicit visible sessions up to 60 seconds with hatch protection |
 | Announcement | Plain speech through Jibo’s familiar voice, with native completion acknowledgement |
 
 Media is uploaded directly from HA over pinned TLS, kept only in robot memory for a short time, and consumed once. Robot controls accept no arbitrary web URLs, shell commands, JavaScript or method names. Touch, a native voice turn, new robot activity, disconnect and permission removal preempt owned screen, ring, audio, skill and camera resources.
 
-Quiet hours apply to announcements, audio controls and audible skills. Ordinary Jibo commands keep their native routing. Opening a camera card does not start capture: use **Camera: Turn on** explicitly. The active session displays a notice on Jibo; opening the hatch or touching his head stops it. This is a short preview, not continuous video, gallery access, or microphone streaming.
+Quiet hours apply to announcements, audio controls and audible skills. Ordinary Jibo commands keep their native routing. Opening a camera card does not start capture: use **Camera: Turn on** explicitly. The active session displays a notice on Jibo; opening the hatch or touching his head stops it. The feed uses native continuous video. It provides no gallery access or microphone streaming; viewing the card never extends the session.
 
 ### Supported work and next additions
 
 Single-code setup, connection management, all 15 sensors, voice commands, announcements and the controls above are implemented in this release. Hardware evidence is recorded separately in [validation](docs/validation.md).
 
-Weather launch from HA, arbitrary Nimbus execution, full-rate multi-camera video and remote media URLs need additional native command paths and testing. They are research items; no release date or compatibility promise is attached. Jibo’s ordinary spoken weather command remains available.
+Weather launch from HA, arbitrary Nimbus execution, stereo video and remote media URLs need additional native command paths and testing. They are research items; no release date or compatibility promise is attached. Jibo’s ordinary spoken weather command remains available.
 
 ## Robot sensors
 
@@ -238,7 +238,7 @@ Each paired Jibo adds 15 read-only entities. Their values stay on the local conn
 | Speaker volume | Percent; reading it doesn't change the volume |
 | System voltage | Volts |
 
-Temperatures arrive in Celsius and show in your preferred unit. A missing or stale reading becomes unavailable within 30 seconds, and a lost connection clears them all. **Camera** reports the preview and hatch status only, with no image stream, and an idle preview doesn't mean Jibo's perception cameras are off.
+Temperatures arrive in Celsius and show in your preferred unit. A missing or stale reading becomes unavailable within 30 seconds, and a lost connection clears them all. **Camera activity** reports the preview and hatch status. The separate **Camera** entity supplies the opt-in live video feed. Idle activity does not mean Jibo's perception cameras are off.
 
 </details>
 
