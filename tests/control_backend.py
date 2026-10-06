@@ -45,7 +45,7 @@ class SyntheticControlRobot(SyntheticLocalRobot):
     def __init__(self, directory):
         super().__init__(directory)
         self.features = list(FEATURES)
-        self.firmware_version = "13.2.3"
+        self.firmware_version = "13.3.0"
         self.enabled = []
         self.denied_groups = set()
         self.control_calls = []
@@ -80,6 +80,7 @@ class SyntheticControlRobot(SyntheticLocalRobot):
 
     async def start(self):
         app = web.Application(client_max_size=8 * 1024 * 1024)
+        app.router.add_get(BASE + "/identity", self._identity)
         app.router.add_post(BASE + "/pair/{step}", self._pair)
         app.router.add_delete(BASE + "/pairing", self._revoke)
         app.router.add_get(BASE + "/connect", self._connect)

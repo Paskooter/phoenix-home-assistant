@@ -14,6 +14,7 @@ from homeassistant.components import conversation
 
 from tests.direct_backend import wait_for
 from tests.test_agents import choose_agent
+from tests.test_controls import entity, local_media
 from tests.test_conversation import install_devices
 from tests.test_telemetry import VALUES, metric_id
 
@@ -177,3 +178,81 @@ async def test_actual_node6_telemetry_announce_confirmation_permission_and_curre
     await hass.config_entries.async_remove(entry.entry_id)
     state = await native_peer.rpc("status")
     assert not state["paired"] and state["direct_enabled"]
+
+
+async def test_actual_node6_controls_media_camera_touch_and_permission_revocation(hass, native_peer, tmp_path):
+    """Real HA entities -> real TLS/broker/adapter -> invented SDK resources."""
+    await local_media(hass, tmp_path)
+    entry = await native_peer.linked_entry(hass)
+    await choose_agent(
+        hass,
+        entry,
+        conversation.HOME_ASSISTANT_AGENT,
+        **{
+            "allow_screen": True,
+            "allow_ring_light": True,
+            "allow_audio": True,
+            "allow_sleep": True,
+            "allow_skills": True,
+            "allow_camera": True,
+        },
+    )
+    await wait_for(lambda: entry.runtime_data.client.ready)
+    screen = entity(hass, entry, "text", "screen_text")
+    ring = entity(hass, entry, "light", "ring_light")
+    speaker = entity(hass, entry, "media_player", "speaker")
+    sleep = entity(hass, entry, "switch", "sleep_control")
+    skills = entity(hass, entry, "select", "installed_skill")
+    camera = entity(hass, entry, "camera", "camera")
+    try:
+        await wait_for(lambda: screen.available and ring.available and camera.available)
+    except TimeoutError:
+        client = entry.runtime_data.client
+        raise AssertionError(
+            {
+                "state": client.state,
+                "ready": client.ready,
+                "capabilities": client.capabilities,
+                "robot": client.robots.get(native_peer.robot_id),
+                "options": dict(entry.options),
+                "values": client.control_values,
+                "native": await native_peer.rpc("status"),
+            }
+        ) from None
+    await screen.async_show_text("Invented line one\nline two", 2000)
+    await wait_for(lambda: screen.native_value == "Invented line one\nline two")
+    await screen.async_show_image("media-source://media_source/invented/invented.png", 2000)
+    await wait_for(lambda: entry.runtime_data.client.observed_control("screen_image_id") is not None)
+    await ring.async_turn_on(rgb_color=(20, 40, 80))
+    await wait_for(lambda: ring.is_on is True)
+    await speaker.async_set_volume_level(0.4)
+    await wait_for(lambda: speaker.volume_level == 0.4)
+    await speaker.async_play_media("audio/wav", "media-source://media_source/invented/invented.wav")
+    await wait_for(lambda: str(speaker.state) == "playing")
+    await speaker.async_media_pause()
+    await wait_for(lambda: str(speaker.state) == "paused")
+    await speaker.async_media_play()
+    await speaker.async_media_stop()
+    await wait_for(lambda: str(speaker.state) == "idle")
+    await screen.async_clear_screen()
+    await sleep.async_turn_on()
+    await wait_for(lambda: sleep.is_on is True)
+    await sleep.async_turn_off()
+    await wait_for(lambda: sleep.is_on is False)
+    await skills.async_select_option("Clock")
+    await wait_for(lambda: skills.current_option == "Clock")
+    await entity(hass, entry, "button", "stop_activity").async_press()
+    await wait_for(lambda: skills.current_option is None)
+    await camera.async_turn_on()
+    await wait_for(lambda: camera.is_on is True)
+    image = await camera.async_camera_image()
+    assert image.startswith(b"\xff\xd8")
+    await native_peer.rpc("touch")
+    await wait_for(lambda: camera.is_on is False and ring.is_on is False)
+    state = await native_peer.rpc("status")
+    assert state["calls"]["views"] == 3 and state["calls"]["photos"] == 1
+    assert state["calls"]["rings"] >= 1 and state["calls"]["sounds"] == 1
+    previous_client = entry.runtime_data.client
+    await choose_agent(hass, entry, conversation.HOME_ASSISTANT_AGENT, allow_screen=False, allow_camera=False)
+    await wait_for(lambda: entry.runtime_data.client is not previous_client and entry.runtime_data.client.ready)
+    await wait_for(lambda: (screen := entity(hass, entry, "text", "screen_text")) is not None and not screen.available)

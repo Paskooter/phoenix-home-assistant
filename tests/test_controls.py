@@ -6,6 +6,7 @@ from pathlib import Path
 
 import atomicwrites
 import pytest
+from homeassistant.components import conversation
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
@@ -17,6 +18,7 @@ from custom_components.phoenix.controls import CONTROL_OPTIONS
 from custom_components.phoenix.controls_api import async_upload_media
 from tests.control_backend import SyntheticControlRobot, invented_image, invented_wav
 from tests.direct_backend import linked_entry, wait_for
+from tests.test_agents import choose_agent
 
 
 @pytest.fixture
@@ -103,6 +105,25 @@ async def test_native_controls_are_default_off_and_require_permission_acknowledg
     with pytest.raises(ServiceValidationError):
         await client.async_control(control_robot.robot_id, "display_text", {"text": "Invented unapproved message"})
     assert not control_robot.control_calls and not entity(hass, entry, "text", "screen_text").available
+
+
+async def test_options_expose_independent_default_off_permissions_and_preserve_them(hass, control_robot):
+    entry = await linked_entry(hass, control_robot)
+    flow = await hass.config_entries.options.async_init(entry.entry_id)
+    form = flow["data_schema"]({"conversation_agent": conversation.HOME_ASSISTANT_AGENT})
+    assert all(form[key] is False for key in CONTROL_OPTIONS.values())
+    hass.config_entries.options.async_abort(flow["flow_id"])
+    await choose_agent(hass, entry, conversation.HOME_ASSISTANT_AGENT, allow_screen=True, allow_ring_light=True)
+    await wait_for(lambda: entry.runtime_data.client.ready)
+    assert entry.options["allow_screen"] and entry.options["allow_ring_light"]
+    assert all(
+        entry.options[key] is False
+        for key in CONTROL_OPTIONS.values()
+        if key not in ("allow_screen", "allow_ring_light")
+    )
+    await choose_agent(hass, entry, conversation.HOME_ASSISTANT_AGENT, allow_ring_light=False)
+    await wait_for(lambda: entry.runtime_data.client.ready)
+    assert entry.options["allow_screen"] and entry.options["allow_ring_light"] is False
 
 
 async def test_native_platform_services_report_only_observed_state(hass, control_robot):
@@ -333,7 +354,7 @@ async def test_authenticated_name_updates_preserve_user_name_area_and_ids(hass, 
     device = registry.async_get_device_by_identifier((DOMAIN, control_robot.robot_id), entry.entry_id)
     device_id, entity_id = device.id, screen.entity_id
     credential, generation = entry.data["credential"], entry.data["generation"]
-    assert device.sw_version == "13.2.3"
+    assert device.sw_version == "13.3.0"
     area = ar.async_get(hass).async_create("Invented Lab")
     registry.async_update_device(device_id, name_by_user="Invented owner label", area_id=area.id)
     control_robot.name = "Invented stored nickname"
@@ -341,7 +362,7 @@ async def test_authenticated_name_updates_preserve_user_name_area_and_ids(hass, 
     await wait_for(lambda: registry.async_get(device_id).name == "Invented stored nickname")
     assert registry.async_get(device_id).name_by_user == "Invented owner label"
     control_robot.name = "Amber Quiet River Finch"
-    control_robot.firmware_version = "13.2.4"
+    control_robot.firmware_version = "13.3.1"
     await control_robot.roster()
     await wait_for(lambda: registry.async_get(device_id).name == "Amber Quiet River Finch")
     assert registry.async_get(device_id).name_by_user == "Invented owner label"
@@ -351,7 +372,7 @@ async def test_authenticated_name_updates_preserve_user_name_area_and_ids(hass, 
     assert entity(hass, entry, "text", "screen_text").entity_id == entity_id
     device = registry.async_get(device_id)
     assert device.name == "Amber Quiet River Finch" and device.name_by_user == "Invented owner label"
-    assert device.sw_version == "13.2.4"
+    assert device.sw_version == "13.3.1"
     assert device.area_id == area.id
     assert entry.data["credential"] == credential and entry.data["generation"] == generation
 

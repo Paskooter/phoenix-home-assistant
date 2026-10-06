@@ -1,172 +1,84 @@
 # Release validation
 
-## Direct beta 0.3.0b3
-
-This beta targets **BE 13.2.2**, **Services 13.0.8**, and baseline **OS 13.0.7**. Its integration change from beta2 is limited to version metadata and minimum firmware guidance. The other sixteen component files, including wire, pairing, command, action and lifecycle logic, are unchanged. Previous beta1/beta2 archives and evidence remain tied to their original bytes. The exact committed beta3 archive lifecycle proof passed on both supported HA versions.
-
-### Physical direct session — 2026-10-06
-
-An isolated real **HA 2026.9.4** installation paired with the updated robot through its actual physical **Start pairing** and **Approve** controls. The corrected display showed the host, countdown, full eight-digit comparison and approval controls without overlap. The HA configuration flow completed once, **105 ms** after the helper observed physical approval. No native approval, wake or recognition event was injected.
-
-All **15 native sensor roles**, including authenticated **Online**, delivered valid live readings through that paired TLS connection. The HA **Connection** entity was also on. The built-in **home_assistant** conversation agent was selected.
-
-The owner spoke genuine light-on and light-off commands. Passive capture recorded both native wake/start/result sequences, followed by successful local HA processing. The owner confirmed that the single approved physical light changed on and off and that ordinary Jibo wake/time speech worked. The light returned to its initial state through those two voice turns. The last HA response latency was **826.9 ms**; this measures HA request processing and excludes wake detection and cloud speech recognition.
-
-Brightness, colors, scenes, scripts, room context, state questions, routine phrases and follow-ups have software coverage; this physical session tested named light on/off. Direct announcement playback/interruption and connection continuity during a Phoenix restart have not been physically accepted for this beta. Historical cloud-announcement results below do not establish those direct-path behaviors.
-
-### Software and firmware evidence
-
-For **0.3.0b3**, the complete source matrix passed **93/93 on actual HA 2026.8.1 in 132.07 seconds** and **93/93 on HA 2026.9.4 in 140.10 seconds**, with no skips and 81 installed-core/Aiohttp warnings each. Both serial runs included the independent TLS fixture, the pinned private endpoint on official Node 6.5.0, and Jev with provider HTTP intercepted. A socket guard blocked non-loopback connections; there were no unexpected connection attempts. Source bytes stayed unchanged before, between and after runs. Ruff, formatting, translation parity and Node syntax checks passed. These invented-device checks do not establish BE 13.2.2 layout or hardware acceptance.
-
-The flat **0.3.0b3** archive contains **20 files / 90,781 bytes**, with SHA-256 `89d517ce99bc6a53003e7252ea848eba559102bbe7307e5e8dc4bfd317445da3`. All members match committed source `68c561b`; all fourteen Python modules loaded from fresh extraction. Actual HA **2026.8.1** completed the archive lifecycle in **5.348 seconds**, and **2026.9.4** in **4.364 seconds**. Both exercised pinned TLS, UI pairing with a separate synthetic approval, options, unload/reload, and a distinct process loading the persisted credential, pin, generation, options and ledger. Duplicate requests were rejected without replay, and confirmed revocation/removal cleared credential, registries and ledger. All fifteen synthetic sensor roles and the `13.2.2` minimum firmware label were visible. One invented light action seeded each ledger; restart issued none. There were zero outgoing robot actions, speech-adapter calls, provider calls or live owner/robot access. Both processes exited, and all source/archive payloads remained unchanged.
-
-Physical **Start pairing** on installed BE **13.2.1** opened the screen, but the Cancel button clipped the countdown. The owner did not complete the eight-digit comparison or establish the direct HA session. The corrected **BE 13.2.2** layout passed **162 host tests**, **six native geometry cases** and **fourteen UI cases on official Node 6.5.0**. Shipped GUI components and PIXI wrapping/font fitting run with conservative invented glyph measurements; those checks preserve controls and eight-digit comparison strings but do not establish physical rendering. The complete archive built from private committed source `422a26e1` passed the official 11.0.1 gate: **21,590 official files**, **21,617 candidate files**, **27 additions**, no missing official files and zero unresolved entry points. Independent review verified all **23,685 inner entries** against committed bytes, order, modes, ownership and timestamps. The tar is **173,393,920 bytes**, SHA-256 `1654a87e2a0acf6d59d1a2c7ff0379e58d9c5907fef4409c02cefda7e74430a9`. The physical pairing, named-light voice path and all fifteen paired HA sensor roles subsequently passed as recorded above.
-
-Before the paired session above, a separate normal-mode reboot after the BE 13.2.2-only native update completed on **2026-10-05**. All **21 installed source-hash checks** matched the reviewed release before and after that reboot; OS, Services and OOBE versions remained unchanged, and no OTA was pending. The actual **Electron 1.4.3 / Node 6.5.0** renderer displayed the complete native UI and normal face. Its local controller, native access mode and persisted certificate hash were healthy. A temporary in-memory telemetry reader returned valid non-null values for all **fourteen measurement fields**, then was destroyed. This performed no pairing, wake, speech or home action. The unpaired robot had no open pairing window or connected HA session; these observations do not establish the fifteenth Online entity or delivery through HA.
-
-Public [CI for source `40ce56d`](https://github.com/Paskooter/phoenix-home-assistant/actions/runs/37341339650) passed HACS, hassfest and both supported HA jobs. Each HA job recorded **92 passed / 2 skipped**, in **105.84 / 105.95 seconds** on HA **2026.8.1 / 2026.9.4**. The two skipped private endpoint cases are covered by the separate complete 93-case source matrix above. A new gated-roster regression verifies that announcements remain denied until HA receives the authenticated permission roster; one confirmed announcement succeeds afterward. Both local public suites passed **92 / 2 skipped** in **135.32 / 134.83 seconds**. The fix changes only test synchronization and adds that regression; all twenty beta3 payloads remain unchanged. The preceding `9575ca4` CI attempt failed two announcement checks because the tests proceeded before the roster arrived; its original failed attempt remains recorded.
-
-Public [CI for source `71ae44e`](https://github.com/Paskooter/phoenix-home-assistant/actions/runs/37342598181) also passed all four jobs: HACS, hassfest, and HA **2026.8.1 / 2026.9.4**. The HA jobs recorded **92 passed / 2 expected private-endpoint skips**, in **107.31 / 106.35 seconds**. All twenty released component files remain byte-for-byte identical to the archive above.
-
-## Previous direct candidate 0.3.0b2 — physical session incomplete
-
-The previous direct candidate targets **BE 13.2.1**, **Services 13.0.8**, and baseline **OS 13.0.7**. The updated integration's source checks, CI, and exact extracted-archive lifecycle passed on both supported HA versions. Corrected BE 13.2.1 packaging and installed normal startup also passed. Physical pairing, a genuine native wake, LAN actions, spoken replies and the full physical HA sensor session still need acceptance. Isolated HA checks do not establish those native direct-session results.
-
-For **0.3.0b2**, actual Home Assistant **2026.8.1** passed **93/93 tests in 134.63 seconds** and **2026.9.4** passed **93/93 in 146.81 seconds**, with no skips. Each run included the independent Python TLS fixture, the reviewed private endpoint on official **Node 6.5.0**, and the actual Jev SDK with provider HTTP intercepted. Each reported 81 installed-core/Aiohttp warnings. Four focused announcement/status checks also passed on each version, including visible `minimum_firmware: 13.2.1` and blocked requests with no outgoing action. Ruff, formatting, Node syntax, translation parity and unchanged source-byte checks passed. These are invented-device software checks, not installed BE 13.2.1 results.
-
-The flat **0.3.0b2** candidate archive contains **20 files / 90,449 bytes**, with SHA-256 `f3b06527a827cb2b081f951ad173d26d39de9d8cbce730bd2375d713978ca712`. Every ZIP member matches source `b5dda149091fb884852aa8c033519de64391a3d9`, and the archive CRC check passed. Fresh extraction and lifecycle checks passed on actual HA **2026.8.1 in 4.403 seconds** and **2026.9.4 in 3.913 seconds**. All fourteen integration Python modules loaded exclusively from each new extraction.
-
-Each version exercised pinned TLS and the real pairing/configuration flow against an independent synthetic robot, requiring HA confirmation and the fixture's separate approval. Options, unload/reload, and a distinct new process loading the same persisted pin, credential, generation, options and request ledger passed. Three duplicate requests returned `duplicate_not_replayed`, with no additional device call. Confirmed revocation/removal cleared the credential, registry and ledger. All fifteen sensor roles were visible, and `minimum_firmware: 13.2.1` remained visible while announcement permission was off. Four status interval handles were canceled during installation and one during restart/removal.
-
-Exactly one invented local light service call seeded the ledger per version; restart issued none. The proof observed **zero outgoing robot actions, speech-adapter calls, provider calls or live owner/robot access**. All child processes and fixture controls exited, and source/archive bytes stayed unchanged. The previous 0.3.0b1 archive and proof remain unchanged. These results validate the extracted HA archive, not the physical pairing screen or BE 13.2.1 hardware.
-
-Public [CI for source `b5dda14`](https://github.com/Paskooter/phoenix-home-assistant/actions/runs/37266615709) passed all four jobs: HACS, hassfest, and both HA versions. The raw logs report **91 passed / 2 skipped in 105.58 seconds** on HA **2026.8.1** and **91 passed / 2 skipped in 102.47 seconds** on **2026.9.4**, with 79 installed-core/Aiohttp warnings each. Public CI skips the two private endpoint cases; the separate local 93-test matrix above included them on both versions.
-
-BE **13.2.1** passed **156 host tests** and **14 pairing UI cases on official Node 6.5.0** using the vendor view-transition implementation. Six regression cases failed against the old Settings source and passed with the transition fix. These checks validate the UI code; they do not substitute for physical pairing.
-
-The complete **BE 13.2.1** archive was built from committed source `fefd7a5`. Its **173,404,160-byte** artifact has SHA-256 `d1d8e57b3ad16a4c33e4b92e2ff7907dd1768f6d92922f06c005b78ecf70fdd1`. The official-archive integrity gate passed with **21,590 official files**, **21,617 candidate files**, **27 additions**, and **zero unresolved package entry points**. Independent review compared all **23,685 inner archive entries** and verified the committed file coverage and preserved runtime dependencies. The reference archive served only as a comparison; the complete committed tree supplied the build.
-
-After one approved BE-only native update completed, the test robot returned to normal mode and passed a fresh postboot read-only check on **2026-10-05**. All twelve installed source-hash checks passed. The actual **Node 6.5.0 / Electron 1.4.3** renderer displayed the complete native UI and one face canvas; native state was idle and the local controller was healthy. A temporary in-memory telemetry reader returned non-null native values for all **fourteen measurement fields**, then was destroyed. This check performed **no pairing, wake, speech or device action**. The fourteen raw readings do not establish the fifteenth Online entity or delivery through a physically paired HA sensor session.
-
-The previous **0.3.0b1** integration at source `32c77f5ff452c1de29ba3a0d35a98a87c7ceefc4` passed **93/93 tests in 139.58 seconds** on actual Home Assistant **2026.8.1**, and **93/93 in 136.22 seconds** on **2026.9.4**, with no skips. Both runs exercised the actual private TLS endpoint on official **Node 6.5.0**, an independent Python TLS robot fixture, and the actual Jev SDK with provider HTTP intercepted. Devices and identities were invented; no household or paid provider call occurred. Each run reported 81 installed-core/Aiohttp warnings. Ruff, formatting, Node syntax, source equality and diff checks passed. Migration was tested in this source matrix.
-
-The exact flat **0.3.0b1** archive contains **20 files / 90,781 bytes**, with SHA-256 `0e69bb8a08eb7d51c1a8f0ca25cd921de5fad7181d665ba90cdf138e5c57e0c8`. Every payload matched that source. Fresh extraction, physical-approval protocol checks against an independent synthetic TLS robot, options, unload/reload, a distinct process loading the persisted identity and request ledger, confirmed revocation, and storage removal passed on both actual HA versions. Duplicate requests were not replayed. These archive checks used invented devices and no owner or physical robot; they do not validate the updated 0.3.0b2 archive or native pairing UI.
-
-The superseded **BE 13.2.0** SDK-completion correction passed **146/146 host tests**, including **37 native tests** also run on official Node **6.5.0** through the shipped SDK. Its complete official-archive integrity gate passed. Those counts apply to that superseded source; current BE 13.2.1 packaging and normal-startup evidence is recorded above. Physical acceptance of the corrected pairing UI remains pending.
-
-Installed BE **13.2.0** started normally and returned valid native readings for all fourteen measurement fields. During physical pairing, a concurrent Settings view change interrupted the Home Assistant screen and canceled the attempt. That attempt did not complete direct-path hardware acceptance. The corrected **13.2.1** pairing UI and resulting direct HA session still need physical acceptance.
-
-On 2026-10-05, the reviewed read-only telemetry provider ran in memory on the designated test robot's actual Electron 1.4.3 / Node 6.5.0 runtime. It returned valid readings for all fourteen measurement fields, including native touch, hatch, preview, and circadian state. Native service source inspection verified Celsius, volts, dB RMS, and fractional fan/volume units. The actual certificate builder also generated a valid local certificate and TLS 1.2 context in memory. These probes installed no firmware, created no pairing, and issued no speech or device action. Online and the full physical HA session still require the direct checks below.
-
-Before release, record artifact-pinned results for the following checks. A passing legacy cloud test cannot substitute for a direct-path result.
-
-| Required direct check | Evidence status |
-| --- | --- |
-| HA minimum/current-version lifecycle and exact release-archive installation | Updated 0.3.0b2 source, CI and exact extracted-archive lifecycle passed on both versions |
-| Physical pairing, matching/mismatched eight-digit SAS, cancellation, expiry, replacement, and certificate pinning | Isolated TLS protocol passed; physical approval pending |
-| Legacy migration with cloud socket stopped, preserved agent/routine/quiet-hours options, fresh local announcement opt-in, explicit old device/area choice, and offline cleanup guidance | Passed in isolated HA on both versions |
-| Native wake admission; rejected unsolicited cloud command/query/result and expired/reused requests | Native fake-runtime and actual Node 6.5 endpoint passed; genuine physical wake pending |
-| Local on/off commands, state queries, room context, follow-ups, routines, and honest uncertainty | Passed against real HA with invented devices; physical command pending |
-| Local announcement completion, native voice/touch interruption, current-volume preservation, and no replay | Isolated native/protocol passed; physical speech/touch pending |
-| LAN status and opted-in announcements during a Phoenix restart, without a persistent voice reservation | Pending |
-| HA/robot reconnect and normal reboot, durable request admission, corruption fail-closed behavior, and no replay | Isolated restart/storage/reconnect and installed BE 13.2.1 normal boot passed; paired physical reconnect pending |
-| Removal/physical Forget and durable revocation, including offline removal | Isolated API/UI revocation passed; physical Forget pending |
-| All fifteen HA sensor entities, native units, immediate touch, source expiry, and connection loss | Installed BE 13.2.1 returned fourteen raw measurement fields; isolated HA lifecycle passed; physically paired HA session pending |
-| Complete committed BE packaging and official-archive integrity gate | Complete BE 13.2.1 archive, official integrity gate and independent entry comparison passed |
-
-Phoenix ASR supplies trusted recognized text during an admitted wake turn. Operator-provided firmware and its fixed trust configuration remain trusted. Voice still needs Phoenix and does not gain offline recognition or full transcript privacy.
-
-## Historical cloud-connector evidence
-
-The results below apply to their named protocol-1 releases and artifacts. They are retained as historical evidence and do not validate the 0.3 direct transport, physical SAS pairing, or independent LAN announcements/status.
-
-
-## 0.2.0b2 and corrected receiver
-
-Beta **0.2.0b2** changes integration version metadata and the minimum receiver firmware shown in diagnostics and errors to **BE 13.1.2**. Each robot also has a standard [enum diagnostic sensor](https://developers.home-assistant.io/docs/core/entity/sensor/), **Announcement status**, that keeps local readiness and minimum receiver guidance visible when the notify entity is unavailable. The sensor reads cached connection, permission and receiver flags and the existing local quiet-hours check; it performs no I/O or actions. A local 30-second refresh keeps quiet-hours status current without network updates, and its timer is removed when the entity unloads. Notify availability, action admission, permission checks and protocol behavior are unchanged.
-
-The BE **13.1.0** candidate failed speech-adapter initialization because of a module-export mismatch. BE **13.1.1** corrected that adapter and passed UI/speech-adapter startup checks, but its receiver failed before connecting: a browser timer method threw `TypeError: Illegal invocation`. The isolated timer-binding probe cleared its temporary timer and issued **zero native actions**. The replacement **BE 13.1.2** receiver passed physical announcement completion, idle reconnect without replay, supplied-ASR voice preemption, normal-mode reboot and the approved light's on/off regression described below. The earlier isolated compatibility tests did not establish full receiver startup on hardware.
-
-The **0.2.0b1** release tag and archive remain unchanged. Protocol 1 and action behavior are unchanged, so the receiver correction requires no immediate HA reinstall for an installed 0.2.0b1 integration. Its old `minimum_firmware: 13.1.0` label is historical metadata; the 0.2.0b2 archive's label is `13.1.2`. The existing 0.2.0b1 results and superseded 13.1.1-label candidate results below apply to their exact artifacts.
-
-The flat **0.2.0b2 archive with 13.1.2 guidance** contains **17 payload files / 77,194 bytes**, with SHA256 `f9298fd439decabd77031fffb744ae21b906c6442affc19167b2b7ce438aa009`. Every payload matched the exact Git bytes at commit `4d69523fe0b6a671089f3d1f1da175365f2e42a9`. Fresh extraction and lifecycle checks passed serially on actual HA **2026.8.1 in 96.717 seconds** and **2026.9.4 in 49.413 seconds**, covering linking, saved options, unload/reload, a fresh-process persisted restart, and confirmed credential revocation/removal.
-
-The registered status sensor showed `minimum_firmware: 13.1.2` through the same local readiness transitions. Real quiet-hours timer updates took **29.702 / 29.984 seconds**, with broker status-read and roster counters unchanged at **14 / 14**. Each version canceled five interval handles during installation and four during restart/removal. The proof observed **zero outgoing actions, device service calls or provider requests**, with no live owner or native robot calls. These are HA archive and cached-status checks; the separate physical BE 13.1.2 results below do not come from this lifecycle proof.
-
-The [full CI run for the 13.1.2-guidance source](https://github.com/Paskooter/phoenix-home-assistant/actions/runs/37190564109) passed all four jobs: **66/66 integration cases on HA 2026.8.1 in 347.85 seconds**, **66/66 on HA 2026.9.4 in 376.03 seconds**, HACS and hassfest. Each integration job reported **68 warnings**. The tested runtime source was commit `4d69523fe0b6a671089f3d1f1da175365f2e42a9`, whose 17 component files match the replacement archive. This CI result does not establish physical receiver acceptance.
-
-The superseded flat **0.2.0b2 candidate with 13.1.1 guidance** contains **17 payload files / 77,195 bytes**, with SHA256 `8fbb9fb51115afd1b7f0fc66b04ab766b0e80c37605aabb729c683269836d810`. Every extracted file matched the source at commit `19dc707895c7c5aa55d6f6d0527cd6c2d5e9be22`. Fresh configurations passed serially on actual HA **2026.8.1 in 60.231 seconds** and **2026.9.4 in 59.592 seconds**, including linking over synthetic TLS, saved options, unload/reload, fresh-process restart and backend-confirmed credential revocation/removal.
-
-Actual registered sensor states covered permission, firmware, ready, offline, busy, disconnected and quiet hours, with `minimum_firmware: 13.1.1` visible while native notify was unavailable. A real local 30-second timer published the quiet-hours boundary without a network roster update; cached robot flags and broker counters stayed unchanged. Timer cancellation was checked after unload and removal. The proof observed **zero outgoing action frames, adapter deliveries, device service calls or provider requests**. It did not exercise native announcement delivery or physical receiver boot, and did not reinstall or retest Jev.
-
-At that same commit, six added permanent regression cases passed on both actual HA versions: two status/timer cases and four built-in on/off confirmation cases. The status tests observed local publication and cleanup with no outgoing actions. Each confirmation case made exactly one synthetic light service call; missing, unknown or unavailable post-dispatch states returned uncertainty with no retained context or retry. A target disappearing during confirmation remained unresolved until the original **7.5-second deadline**, returning uncertainty in **7.516 / 7.507 seconds**, respectively. The existing on/off confirmation code was unchanged.
-
-The [full CI run for that 13.1.1-label candidate](https://github.com/Paskooter/phoenix-home-assistant/actions/runs/37188901322) passed all four jobs: **66/66 integration cases on HA 2026.8.1 in 375.80 seconds**, **66/66 on HA 2026.9.4 in 372.65 seconds**, HACS and hassfest. These results apply to commit `19dc707895c7c5aa55d6f6d0527cd6c2d5e9be22`; they do not establish hardware receiver startup or validate a replacement archive's 13.1.2 labels.
-
-## 0.2.0b1 published beta
-
-[Beta 0.2.0b1](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.2.0b1) was published on **2026-10-04**. It adds robot areas, local state questions, bounded follow-ups and relative brightness, exact exposed scene/script shortcuts, per-robot diagnostics, and opt-in native announcements. HA integration tests use actual Home Assistant **2026.8.1** and **2026.9.4**, Python **3.14.8**, Node **22.22.0**, and TypeSafe SDK **0.7.2**. Entities, identities, native peers and provider HTTP are synthetic. Phoenix speech recognition stays in place; this architecture trusts the Phoenix operator as described in [security.md](security.md).
-
-Before the unsupported volume option was removed, the complete suite passed **57/57 on each HA version**. It exercised actual conversation processing and returned speech, area/exposure and capability checks, heterogeneous brightness and clamping, local read-only questions, routines, config lifecycle, authorization, reconnect, deadlines, deduplication and uncertainty. An actual Gateway process was killed and replaced while its native peer stayed offline: startup restored the outstanding reservation before its first heartbeat, voice and deployment remained blocked for **61.136 / 61.164 seconds**, and exactly one original announcement frame was observed with no replay. After authenticated stop/idle recovery, the real deployment guard observed **60.248 / 60.993 seconds** of quiet. Separate connected-idle checks observed **60.438 / 60.533 seconds**. These guard/durability source files are unchanged by volume removal.
-
-The final volume-removal delta passed **12/12 impacted cases on each version**, serially, with identical source bytes before, between and after runs. Stored legacy options are hidden, ignored and dropped on save; accepted requests omit volume. Every supplied volume override rejects before ledger admission, Account authorization callbacks, native reservations, frames or deployment activity. Current-volume announcement completion, permission, deduplication, cancellation and uncertainty paths remain covered. Observed loopback-to-synthetic-completion latency was **832.1ms / 340.9ms**; these timings do not measure physical speech or Internet/provider latency.
-
-The [final full CI run](https://github.com/Paskooter/phoenix-home-assistant/actions/runs/37174334317) for commit `67e4240ac89defacba4c1f86e62ec5961d7ca918` passed all four jobs: **60/60 integration cases on HA 2026.8.1 in 299.24 seconds**, **60/60 on HA 2026.9.4 in 308.62 seconds**, HACS and hassfest. This is the complete post-volume-removal matrix.
-
-A live Phoenix server update on **2026-10-04** used the native deployment guard with fresh Hub and OTA activity records and a full **60 seconds without new activity** before activation. Independent verification passed all **14 service health checks** and confirmed that public requests to the tested internal routes were denied. This server deployment does not establish receiver hardware acceptance.
-
-Phoenix's focused native/broker/Classic/activity regression suite passed **69/69**, and the unchanged private extension's preservation checks passed **26/26** with the same **69/69** public checks overlaid. Independent review passed **58/58** safety/recovery checks. Jev **0.3.0b1** passed **266/266 on each HA version**, with main and release CI passing. These results do not make the pre-existing broader Phoenix suite green; baseline failures described below remain.
-
-The superseded BE **13.1.0** candidate passed its **46/46** private tests. Its independent official-archive gate found **21,590 official files**, **21,604 candidate files**, **14 additions** and **zero unresolved package entry points**. These checks did not establish successful robot initialization; its receiver subsequently failed hardware boot acceptance. Announcement volume uses Jibo's current setting because the tested native speech engine cannot honor per-utterance gain; supplied overrides are rejected. Later physical BE 13.1.2 announcement, preemption, normal-mode reboot and light-regression results are recorded below. A harmless announcement through the existing native speech primitive previously completed with `SUCCEEDED` in **2452ms**, without changing master volume; that primitive proof does not establish the new inbound announcement bridge.
-
-The unchanged native receiver also passed **32/32 targeted checks** under the official Linux x64 **Node 6.5.0** binary. Only test async/await syntax and test runner APIs were adapted; receiver source was not transformed. Native sockets, speech events and services were simulated, while actual marker persistence and fsync tests used local disposable directories. A separate harness with simulated runtime/filesystem objects and an audit of available Node APIs also passed. They checked recovery after restart, retained busy state after a failed stop, rejection of volume overrides and no access to master volume. This is synthetic controller and host Node compatibility evidence for that superseded artifact. Those checks did not establish ARM/Electron ABI compatibility, physical speech, native TLS handshakes or installed receiver boot. The later BE 13.1.2 physical results below are separate evidence.
-
-The final flat Phoenix **0.2.0b1** `phoenix.zip` contains **16 payload files / 76,060 bytes** and has SHA256 `962cb82463e0ccfa2dc4263bae42f56f81f454fcfa3e24d46870c436e6998902`. Every payload file matched the exact Git bytes at commit `67e4240ac89defacba4c1f86e62ec5961d7ca918`. Fresh extraction into clean configurations passed sequentially on actual HA **2026.8.1 in 5.093 seconds** and **2026.9.4 in 4.635 seconds**. The proof verified ten module loader source paths, real synthetic TLS linking, saved options and quiet hours, unload/reload, a fresh-process restart, and backend-confirmed credential revocation and removal. The custom announcement-volume option was absent; announcements use the robot's current volume. These lifecycle checks delivered no announcements, issued no device actions and made no provider network calls. Jev's published archive was unchanged and was not reinstalled or retested in this proof.
-
-The physical forward-control results below include the earlier owner-installed connector and an approved regression through the owner's updated connector on BE **13.0.2**. New room/question/routine/follow-up behavior has isolated real HA evidence; physical acceptance of those features remains pending. Fresh microphone recognition remains deferred by the owner. The archive lifecycle proof does not establish native BE hardware acceptance.
-
-## Earlier beta — 0.1.0b3
-
-Validated with Python 3.14.8, Node 22.22.0, Home Assistant 2026.8.1 and 2026.9.4, and connector protocol 1. Home Assistant dependencies match the conversation manifest for each version; the configured agent is explicitly the built-in `conversation.HOME_ASSISTANT_AGENT`. No LLM or configurable default agent is used.
-
-The cross-repository tests use a real Home Assistant core, its actual conversation agent and light/switch platforms, scenes/scripts, Assist exposure, entity aliases and areas, plus the real Phoenix Account/Gateway with synthetic identities and a verified local TLS edge. They cover linking, single-use codes, reauthentication/reconfiguration, clean reload/unload/removal, credential revocation, reconnect, expiry, deduplication across storage reload, forged context rejection, ordinary command conflicts, unavailable targets, partial success, and slow/missing state confirmation, TLS-to-HTTP redirect rejection, and connector-session cleanup. CI repeats these checks on both HA versions. All 16 native Python tests and Ruff checks pass locally on each tested HA version. Phoenix's new server tests pass 11/11; owner browser setup, connection and revocation pass at 390, 768 and 1440px. Its strict production parity gate passes 43 cases with no differences.
-
-Phoenix's broader suite has existing failures on the unchanged base. Reproduced examples include legacy Account reconnect/deletion expectations, a proactive Settings authentication fixture, a source asset digest, and Classic startup/backup fixtures missing required authentication/storage configuration. The broad suite is not reported as passing. The Gateway/skills regression run passed 961 of 963 tests, with both failures reproduced on the unchanged base. Relevant Account regression checks passed 53 of 54, with the deletion expectation reproduced on the unchanged base.
-
-## Physical evidence
-
-A private pilot used **only one owner-approved physical light** through its existing HA 2026.8.1 instance. An isolated real HA light platform forwarded on/off to that single entity. The command traveled from an authenticated synthetic Gateway turn over the finished outbound TLS connector to the real built-in conversation agent, then to the physical device. Its state was confirmed off and on, and its starting state restored. Measured transcript-to-confirmed-state latency was **1291.6ms off** and **775.2ms on**. No other household entity was read or controlled.
-
-On a physical Jibo running **BE 13.0.2**, the resulting Phoenix cloud action was supplied through the existing native skill-relaunch/Nimbus path with the new cloud skill ID. Nimbus opened for `phoenix-home-assistant`; the exact returned text reached the native MiM speech delegate and completed with `SUCCEEDED` in **2625ms**. The robot returned to idle and temporary observation hooks were restored. No robot source, installed package, backend configuration, or OTA was changed. This establishes that the tested cloud reply path can use the existing firmware.
-
-A subsequent setup-only turn used the physical robot's existing `mimicGlobalTurn` API with a supplied transcript. It reached the deployed Phoenix Gateway, opened `phoenix-home-assistant`, spoke the unlinked-installation setup response through native MiM with `SUCCEEDED`, and returned to idle in **5940ms**. It executed no home action. Phoenix deployment used its unchanged native guard, fresh Hub/OTA telemetry, and a full sixty-second quiet interval; all thirteen deployed service health checks passed. The public beta archive was downloaded and loaded into a clean HA configuration, where its user config flow opened successfully.
-
-After the owner installed and linked the published beta, a physical BE 13.0.2 Jibo executed **four continuous production turns** through the actual owner-installed HA 2026.8.1 outbound connector: direct light off/on, followed by explicit “ask Home Assistant to…” light off/on. Each used the native `mimicGlobalTurn` API with supplied ASR text, the authenticated production Gateway, the installation's TLS WebSocket, HA's built-in conversation agent, and the same single approved physical light. No direct HA service API was used for these actions. Each requested state was independently confirmed, each returned result reached the native speech delegate with `SUCCEEDED`, and the robot returned to idle. The light's starting on state was restored.
-
-Measured native-turn-to-spoken-reply completion was **5506ms / 4157ms** for direct off/on and **4495ms / 4457ms** for explicit off/on. These timings include the spoken reply and exclude microphone recognition. HA's Phoenix connection diagnostic remained connected before and after a read-only deployment-activity observation: fresh Hub and OTA state reported **60.103 seconds** of uninterrupted idle while the connector stayed connected. The observation neither paused admission nor restarted services. They establish the owner-installed production robot → connector → physical device → spoken result path with supplied transcripts.
-
-On **2026-10-04**, a separate approved regression used a physical **BE 13.0.2** Jibo and the same single approved light. The owner reported **Phoenix integration 0.2**; the authenticated connector reported **HA Core 2026.8.1**. Two native turns with supplied ASR text sent the light **on, then off** through the owner's connector. HA confirmed the physical states in **2461.894ms / 1700.942ms**, and both native spoken replies completed with `SUCCEEDED` in **5088ms / 4209ms**, respectively. The light's initial state was restored and Jibo's master volume remained unchanged. This regression preceded the latest server activation described above. It did not exercise a human wake phrase, microphone recognition or the new announcement receiver.
-
-After installing the corrected **BE 13.1.2** receiver, an approved announcement through the owner's existing HA notification service completed with native `SUCCEEDED` and the receiver's `completed` outcome. The HA service took about **2.4 seconds**. A subsequent idle WebSocket close/reconnect was observed for **12 seconds** with no additional announcement or replay. The master-volume setting remained unchanged. The owner's existing connector still reported its historical `minimum_firmware: 13.1.0` label; the new beta2 archive's separately tested label is `13.1.2`.
-
-A separate supplied-ASR clock turn preempted one active announcement. The owned native speech ended with `STOPPED` and a stop acknowledgement; its correlated result was **uncertain / interrupted**, with its tombstone retained. The clock reply started after the stop proof and completed with native `SUCCEEDED`. No speech overlap or other unexpected speech was observed, and master volume remained unchanged. Neither physical microphone recognition nor a physical touch was used.
-
-One acknowledged normal-mode reboot then produced a fresh boot, with BE 13.1.2 and its receiver autoloading without a manual BE start. All three saved-mode readbacks showed normal mode, the native UI rendered, and the receiver re-established an authenticated TLS WebSocket. Native state was idle with no outstanding owned marker, master volume remained unchanged, and the owner's existing connector remained ready.
-
-After that normal boot, two supplied-ASR native home turns controlled only the same approved light: **off → on → off**. Both matched the home skill and completed with native `SUCCEEDED`. The requested physical HA states were confirmed in about **2.49 / 1.61 seconds**, and the native spoken replies completed in about **5.8 / 4.2 seconds**, respectively. The original off state was restored through those turns, with no direct cleanup service call; master volume remained unchanged. These physical results use the owner's existing **0.2.0b1** connector. The new **0.2.0b2** archive and its `13.1.2` minimum label have the separate isolated HA lifecycle and CI evidence above. No microphone or physical touch was used.
-
-A fresh human-spoken wake phrase and microphone recognition remain unverified; the owner deferred that check. Firmware versions beyond the specific checks above are unverified. The earlier isolated pilot timings measure different parts of the chain and must not be added to the native speech timing or represented as measured microphone-to-result latency.
-
-Physical captures, household identifiers, addresses, credentials, and operator notes remain outside both repositories. This file contains only sanitized outcomes.
-
-## Optional Jev agent: beta 0.1.0b4
-
-Observed on 2026-10-03: **20 tests passed** on each of Home Assistant 2026.8.1 and 2026.9.4, with Ruff lint/format checks passing. This includes all prior TLS, authorization, route, reconnect, deadline, deduplication, revocation, unload/restart and removal cases plus four agent-selection checks.
-
-The new cross-repository check installs the Jev fork 0.2.0b1 in the same real isolated HA instance and uses its real TypeSafe SDK with mocked OpenRouter HTTP transport. A native Gateway text turn crosses Phoenix's real TLS broker, reaches the selected Jev agent, changes the synthetic kitchen light, and returns a Jibo skill envelope. A second turn reaches an actual HA conversation entity with synthetic Grok speech; ESML escaping remains correct. Selecting an agent retains the owner credential and stops the old connector. Returning to the built-in agent works; removed agents and expired work do not execute. Reload does not replay either command.
-
-Observed Jev transcript-to-result latency: **33.4 ms** (HA 2026.8.1) and **32.8 ms** (HA 2026.9.4), **with the classifier network mocked**. The built-in transcript-to-result check observed 12.6–262.2 ms on 2026.8.1 and 9.8–135.5 ms on 2026.9.4. These are isolated local timings, not provider or hardware latency.
-
-Jev's own suite passed 139 tests on both versions. OpenRouter inference with a real owner's key and Grok subscription entitlement remain owner installation checks. Existing beta 0.1.0b3 physical evidence above applies to the built-in agent, not Jev/Grok. Beta 0.1.0b4 changes HA-side options only; the deployed Phoenix server and robot software are unchanged. No new server deployment or robot OTA is required by this change.
-
-The exact beta 0.1.0b4 phoenix.zip and Jev 0.2.0b1 jev_assist.zip archives also passed fresh extraction into a disposable HA config with source-path checks, synthetic provider key validation, real TLS linking, agent options, unload/reload and removal. No device actions were issued during the archive-install check.
+## 0.4.0b1 / BE 13.3.0 candidate
+
+The integration passed **123/123 tests on actual Home Assistant 2026.8.1** and
+**123/123 on 2026.9.4**, using Python **3.14.8**, with no skips. Both runs included
+real built-in conversation processing, the actual optional Jev SDK with provider
+HTTP intercepted, synthetic TLS peers and the private native robot endpoint
+running on official **Node 6.5.0**. No paid provider or household action occurred.
+
+Coverage includes single-code pairing, wrong/expired/reused codes, mutual proof
+and certificate binding, completion recovery, credential revocation, forged
+identity, migration, address verification, options, unload/reload, storage,
+deadlines, duplicates, reconnect, uncertainty and all 15 telemetry roles.
+
+The combined native-endpoint test exercised real HA control entities through
+pinned TLS and the actual native request broker/adapter: multiline text, PNG
+upload/display, ring RGB, volume, WAV playback/pause/resume/stop, sleep/wake,
+Clock launch/stop, explicit camera preview and touch cleanup. Its native SDK
+resources and camera bytes are invented. It confirms the wire contract and
+native API calls; it does not claim physical display, sound or camera quality.
+
+Independent control cases cover permission acknowledgement, quiet hours, busy
+and touch admission, malformed/absent/stale state, local-media bounds, symlinks,
+remote URLs, redirects, lost responses, no replay, unload timers and name changes.
+Native nickname/four-word name updates preserve HA's explicit user name, area,
+entity IDs and pairing across reload.
+
+BE passed **211/211 native host tests**. The new runtime modules parse on actual
+Node **6.5.0**; unchanged vendor-wrapper tests verify native view, media and sound
+contracts. The complete committed BE tree supplied the build. Its official
+11.0.1 integrity gate reports **21,590 official files**, **21,628 candidate files**,
+**38 additions**, **zero missing files** and **zero unresolved package mains**.
+The 173,383,680-byte candidate's SHA-256 is
+`3ba1b7ed710f77e9910bf50d03e5276639db68f39f3da1c825a98648711dddfa`.
+The official archive is only the integrity reference, never an extracted build
+base. BE source and artifacts remain in their separate private project.
+
+The candidate was copied to the designated test robot over SSH and launched
+through its native System Manager. The actual renderer returned to idle on
+BE 13.3.0; all 13 checked runtime files matched the committed build, and the
+existing paired identity, credential, certificate and profile were preserved.
+Its initialized native adapter advertised all eight control capabilities and
+the four installed skill choices. The public OTA offer was not changed by this
+development launch.
+
+Ruff, formatting, JavaScript syntax, translation parity and archive/lifecycle
+checks are release checks. Final candidate publication and new physical controls
+acceptance are still pending. The source supports these controls, but this file
+does not report an unperformed hardware test or invent physical latency.
+
+## Previous 0.3.0b3 hardware baseline
+
+BE **13.2.2** completed its normal native update and returned to normal startup on
+OS **13.0.7**, Services **13.0.8** and the designated test robot. All **21 installed
+source checks** passed. The renderer used Electron **1.4.3 / Node 6.5.0**. The
+complete official-archive gate passed with 21,617 candidate files and no missing
+runtime entry points.
+
+On a physically paired direct session with HA **2026.9.4**, the owner confirmed
+that Jibo woke and answered an ordinary time question and turned the approved
+single light on and off by voice. Passive native evidence observed genuine
+wake/turn/result sequences, and the paired HA connection delivered all **15 live
+sensor roles**. A recorded HA processing interval was **826.9 ms**; this measures
+HA processing, not complete microphone-to-spoken-response latency.
+
+The published baseline is [0.3.0b3](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.3.0b3).
+Its [public CI](https://github.com/Paskooter/phoenix-home-assistant/actions/runs/37412507116)
+passed HACS, hassfest and both supported HA versions. That hardware evidence does
+not by itself validate the new single-code screen, display/media controls or
+camera preview.
+
+## Limits and remaining physical checks
+
+New pairing layout/completion, native text/image rendering, actual audio/ring
+output, direct announcement interruption, sleep/skill controls, camera preview
+quality/hatch stop and connection continuity through server restart require
+candidate-specific physical evidence. Existing local pairing preservation and
+normal candidate startup have been verified on the designated robot.
+
+No full-rate video, stereo-camera stream, microphone stream, arbitrary Nimbus
+execution or weather action from HA is claimed. Existing ordinary Jibo weather
+speech retains its normal path. Public fixtures are invented; private household
+captures, device identities, credentials and media are excluded from Git.

@@ -1,51 +1,37 @@
 # Trust and permissions
 
-This document covers the **0.3.0b3 direct candidate** with BE 13.2.2 and Services 13.0.8. Direct hardware and release acceptance are pending. The published 0.2.0b2 cloud connector has a different trust boundary.
+Home Assistant connects directly to a physically paired Jibo over certificate-pinned TLS on the LAN. Phoenix does not relay this connection. Pairing keys, robot telemetry, home-device state, returned results and uploaded media remain on the HA–Jibo path. No public HA URL, router port forwarding or paid remote-access service is required.
 
-## Physical pairing and the local connection
+## What is trusted
 
-Home Assistant connects to Jibo over TLS on the LAN. The robot creates a separate local identity, certificate, and credential; it does not reuse a Phoenix account credential. Home Assistant pins the SHA-256 fingerprint of the complete peer certificate after the physical pairing exchange succeeds.
+Owners trust the installed robot firmware and Phoenix speech recognition. Phoenix sees the utterance and supplies recognized text during a native voice turn. This release does not claim offline recognition or private speech transcription. An optional HA conversation agent has its own provider permissions and privacy policy.
 
-An address suggestion, including one from discovery, cannot authorize a robot, replace a saved identity, or change a certificate pin. Initial pairing uses an eight-digit short authentication string (SAS): compare the complete number on both screens, approve on the robot, and confirm in HA. Cancel if it differs or you did not start the physical pairing window. The number is for comparison and is not a bearer credential.
+Jibo admits a home request only after the supported native wake/turn sequence. Unsolicited cloud home-skill launches, client household context, routing hints and mimic turns cannot create that admission. HA does not accept an operator credential or a cloud-origin connector command. The direct connection and sensor health do not depend on a Phoenix socket staying online.
 
-One robot accepts one HA pairing. Physical replacement advances its persistent pairing generation, closes the old connection, and clears follow-up state before granting the replacement access. A pinned certificate change or corrupted paired identity fails closed; it must not silently create a new identity or trust another endpoint.
+This boundary assumes the installed firmware and recognition path are trusted. It does not protect against owner-installed malicious firmware or an administrator with root access to the robot or HA. It avoids giving the Phoenix connector operator an independent standing credential to the home.
 
-Keep TCP 9443 and mDNS/UDP 5353 on the intended local network. Port forwarding and a public HA URL are unnecessary.
+## Physical-code pairing
 
-## Voice and firmware trust
+On Jibo, **Start pairing** opens a two-minute window and displays an eight-digit single-use code. Enter it and Jibo's address in HA. SRP-6a with the 3072-bit group and SHA-512 mutually authenticates that code without sending the code across HTTP. The exchange binds the robot identity, certificate fingerprint, generation, nonce and both parties' ephemeral values. Both sides derive the operational credential; it is not returned as an unauthenticated bearer secret.
 
-A native, single-use wake admission is required for each home command or state query. Cloud metadata, an unsolicited result, or a routing hint cannot open that admission or extend its lifetime. Commands and results travel between the paired robot and HA rather than through a cloud command socket.
+A maximum of five attempts is admitted in a physical window; additional spacing and rate limits apply. The candidate expires after 30 seconds and cannot extend the physical window. A successful durable commit clears the code and replaces the old credential. Lost completion acknowledgement can be recovered through a read-only authenticated status proof. Recovery cannot claim a different robot or extend pairing. New pairing never downgrades to the old comparison protocol.
 
-Phoenix supplies trusted recognized text during an admitted voice turn and can observe that utterance. Operator-provided firmware and its existing fixed trust configuration remain trusted. Local pairing authenticates the robot–HA connection; voice still needs Phoenix and does not gain offline recognition or full transcript privacy.
+The initial TLS certificate probe grants no access. Its fingerprint becomes trusted only after successful code authentication. Ordinary requests use the saved pin, credential, local robot identity and generation. A changed certificate is rejected before a credential reaches that peer. Reconfigure verifies the existing pairing instead of trusting a discovery name or a new address blindly.
 
-Connection health and opt-in local announcements are intended to operate during a Phoenix restart. A functioning LAN session does not prove that cloud recognition is available. This independence remains a direct candidate validation requirement.
+## Voice targets and robot controls
 
-## Permissions in Home Assistant
+HA's existing Assist exposure controls determine which home entities are available. The built-in `home_assistant` agent is explicitly selected by default. State questions use exposed local states. Short follow-ups recheck exposure and capabilities; errors, disconnect and restart clear context. HA processing can execute actions, so ordinary Jibo utterances are classified before dispatch rather than probing HA with every sentence.
 
-- Expose only the devices you intend to make available through Assist. Scenes and scripts execute the behavior you configured locally.
-- Assign the paired Jibo device to an HA area for room-relative commands. Neither cloud text nor a claimed room in a request assigns that area.
-- Local state questions read exposed states without invoking a conversation agent or device service. Routine phrases and follow-ups recheck exposure and their current target capabilities.
-- Selecting another conversation agent also trusts that agent's permissions, provider calls, and data handling. The connector does not turn arbitrary agent behavior into a service sandbox.
-- Announcements require HA-local **Allow announcements** opt-in, default off. The endpoint resets permission to false for every session and accepts the setting only through authenticated preferences. There is no second portal or robot toggle. HA applies quiet hours and uses the robot's current volume.
+Announcements, screen, ring, audio, sleep, installed skills and camera are independent local opt-ins, all off by default. Each connection starts with permissions off until authenticated HA preferences arrive. Native support must also be advertised. Removal of permission stops owned work and discards unused uploads.
 
-Disconnecting or cancelling stops future admission where possible. It cannot undo a device action that has already executed.
+Controls use a closed action schema. They accept no shell command, JavaScript, arbitrary SDK method or robot-fetched URL. Images and WAV files must come from HA's configured local media directories: symlinks, path escapes, redirects, web URLs and remote sources are rejected. Bounded uploads use pinned TLS, remain in memory, expire if unused and are consumed once.
 
-## Credentials, storage, and no replay
+Camera capture requires an explicitly started session, a visible notice, idle native state and a fresh closed-hatch reading. A session expires within 60 seconds. Opening a card never starts capture. The supported preview path does not save images to the gallery and exports no microphone audio. Touch, hatch opening, a new voice turn, native preemption, disconnect and revocation stop owned resources.
 
-HA stores the paired credential and certificate pin privately in its config-entry storage. The robot keeps its local certificate key, identity, pairing generation, and credential in private owner storage. The candidate requires atomic durable writes and rejection of unsafe symlink or corrupted identity state. A paired identity is never regenerated automatically after an error.
+## Failure and revocation
 
-HA remembers request IDs durably before accepting or executing commands. The robot persists announcement admission before speech. These records are deduplication tombstones, not delivery queues. Expired, disconnected, or uncertain work is never replayed after reconnect or restart. A lost result is reported as uncertain.
+Both sides save bounded request admission before execution. IDs, deadlines and durable tombstones prevent duplicate delivery, reconnect or restart from replaying actions. A lost response is **uncertain**; neither side retries the action or claims definite success/failure. Native cleanup that lacks stop proof remains quarantined rather than advertising a safe idle state.
 
-Downloaded diagnostics should omit credentials, pins, addresses, names, household/device/request identifiers, routine phrases, and utterances. Do not share HA's `.storage/core.config_entries`, request storage, robot identity storage, or a private backup. Treat backups and cloned HA configurations as containing live credentials.
+Removing an HA entry attempts local revocation and deletes its request ledger. If Jibo is unreachable, use **Settings → Home Assistant → Manage → Disconnect** and confirm on the robot. Disabling an entry only stops its socket; it is not durable revocation. Replacing a connection requires a physical confirmation and a new code. Native ownership changes reject the old binding and remove access. Disconnecting never restores the legacy cloud home route.
 
-## Revocation and migration
-
-Removing the HA entry attempts authenticated local revocation. If the robot is unreachable, use **Settings → Home Assistant → Forget** on Jibo and confirm Forget. Disabling HA stops the socket but does not erase the robot's pairing. A physical replacement pairing revokes the old credential. Forget retains the robot's identity; corrupted identity storage needs owner recovery. Direct mode stays selected after Forget, revocation, reconnect, and restart, so these events do not restore a cloud home-action path.
-
-Local pairing is independent of Phoenix account ownership. A confirmed change in Jibo's locally stored native credentials revokes its pairing; temporarily unreadable credentials pause access without erasing the key. A cloud account reassignment can preserve those credentials and does not revoke or transfer the local pairing. Before handing Jibo to another owner, use **Settings → Home Assistant → Forget**, confirm, and remove the old HA entry. Do not assume a cloud transfer or reset alone erased the pairing.
-
-An upgraded legacy entry remains migration-required with its cloud socket stopped until physical pairing succeeds. Old cloud credentials cannot authenticate the local endpoint. Migration retains agent, routine, and quiet-hours options, resets announcements to off, and requires an explicit old robot device/area selection; cloud and local UUIDs cannot be assumed to identify the same device.
-
-After local pairing succeeds, HA attempts old cloud installation revocation and removes the old credential. Offline revocation needs manual **Disconnect** in the Phoenix console. This cleanup does not authorize cloud fallback.
-
-See [installation](installation.md), [troubleshooting](troubleshooting.md), and [protocol](protocol.md).
+Keep TCP 9443 and mDNS inside your local network. A private HA backup includes pairing credentials and must not be published. Diagnostics omit keys, pins, addresses, household identities, media and utterances. Public tests use invented identities and devices.

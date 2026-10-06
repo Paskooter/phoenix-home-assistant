@@ -1,7 +1,7 @@
 """Phoenix connector constants."""
 
 DOMAIN = "phoenix"
-VERSION = "0.3.0b3"
+VERSION = "0.4.0b1"
 MIN_ANNOUNCEMENT_FIRMWARE = "13.2.2"
 PROTOCOL_VERSION = 2
 PAIRING_VERSION = 2

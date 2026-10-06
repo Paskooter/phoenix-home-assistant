@@ -1,99 +1,166 @@
-# Phoenix for Home Assistant
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Paskooter/phoenix-home-assistant/main/docs/images/hero.svg" width="100%" alt="Someone says “Hey Jibo, turn on the kitchen lights.” Jibo sends the request over a padlocked local connection to Home Assistant, and a lamp lights up.">
+</p>
 
-Connect Jibo directly to Home Assistant on your local network. Home Assistant Assist resolves your exposed devices, rooms, questions, and owner-selected routines. The built-in conversation agent is the default; an LLM is optional.
+<h1 align="center">Phoenix for Home Assistant</h1>
 
-**Direct beta: 0.3.0b3**, with **BE 13.2.2** and **Services 13.0.8**. Physical pairing, genuine voice-controlled light on/off, ordinary Jibo speech, and all 15 live robot sensors passed on the paired local connection. See [release validation](docs/validation.md) for tested versions and the remaining limits. The older [0.2.0b2](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.2.0b2) uses the legacy Phoenix cloud connector.
+<p align="center">
+  <b>Ask Jibo, and your home does it.</b><br>
+  Pair Jibo directly with Home Assistant on your own network. He can switch lights, run scenes, answer questions about your home and read out your announcements.
+</p>
 
-## How the direct connection works
+<p align="center">
+  <a href="https://github.com/Paskooter/phoenix-home-assistant/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/Paskooter/phoenix-home-assistant?include_prereleases&amp;style=flat-square&amp;label=release&amp;color=ff7a3d"></a>
+  <a href="https://hacs.xyz/docs/faq/custom_repositories/"><img alt="HACS custom repository" src="https://img.shields.io/badge/HACS-custom-41BDF5?style=flat-square"></a>
+  <img alt="Home Assistant 2026.8.1 or newer" src="https://img.shields.io/badge/Home%20Assistant-2026.8.1%2B-18BCF2?style=flat-square">
+  <img alt="Jibo BE 13.3.0 and Services 13.0.8" src="https://img.shields.io/badge/Jibo-BE%2013.3.0%20%C2%B7%20Services%2013.0.8-6e7c96?style=flat-square">
+  <a href="https://github.com/Paskooter/phoenix-home-assistant/actions/workflows/tests.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/Paskooter/phoenix-home-assistant/tests.yml?branch=main&amp;style=flat-square&amp;label=tests"></a>
+</p>
 
-Home Assistant opens a certificate-pinned TLS WebSocket to one physically paired Jibo on TCP **9443**. Each robot has its own HA entry and locally generated identity. Enter its local host in HA; any discovery result is only an address suggestion. An eight-digit comparison on Jibo and in HA establishes the pairing.
+<p align="center">
+  <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=Paskooter&amp;repository=phoenix-home-assistant&amp;category=integration"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Open this repository in HACS in your Home Assistant"></a>
+  <a href="https://my.home-assistant.io/redirect/config_flow_start/?domain=phoenix"><img src="https://my.home-assistant.io/badges/config_flow_start.svg" alt="Start setting up Phoenix in your Home Assistant"></a>
+</p>
 
-```mermaid
-flowchart LR
-    J["Jibo: native wake admission"] <-->|"Recognized text during a voice turn"| P["Phoenix speech recognition"]
-    H["Home Assistant"] <-->|"Paired TLS connection on the LAN"| J
-```
+<p align="center">
+  <a href="#what-jibo-can-do">Features</a> ·
+  <a href="#try-saying">Try saying</a> ·
+  <a href="#install">Install</a> ·
+  <a href="#pair-a-jibo">Pair</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#make-it-yours">Settings</a> ·
+  <a href="#announcements">Announcements</a> ·
+  <a href="#control-jibo-from-home-assistant">Robot controls</a> ·
+  <a href="#upgrading-from-the-cloud-beta">Upgrade</a> ·
+  <a href="#remove">Remove</a> ·
+  <a href="#documentation">Docs</a>
+</p>
 
-Jibo admits each home command through its native wake lifecycle before sending it directly to HA. Device state, returned home results, pairing credentials, and the local connection stay on that path. The LAN connection does not depend on Phoenix. Physical announcement and connection-continuity testing during a Phoenix restart is outside this beta's hardware acceptance.
+> [!NOTE]
+> **0.4.0b1 adds single-code setup and opt-in robot controls.** Its software checks passed on HA 2026.8.1 and 2026.9.4, and BE 13.3.0 starts normally on the test robot while preserving its existing pairing. New controls are undergoing physical acceptance. The preceding 0.3.0b3 passed physical pairing, genuine voice-controlled light on/off and all 15 live sensors. [See the exact evidence](docs/validation.md).
 
-Voice recognition continues to use Phoenix, which sees the utterance and supplies the trusted recognized text during a native voice turn. Operator-provided firmware remains trusted too. Voice still needs Phoenix; local pairing does not provide offline recognition or full transcript privacy. See [trust and permissions](docs/security.md).
+## What Jibo can do
 
-## Install and pair
+<table>
+  <tr>
+    <td width="50%" valign="top">💡 <b>Lights and switches</b><br>On and off, brightness and supported colors, by name or by room.</td>
+    <td width="50%" valign="top">🎬 <b>Scenes and scripts</b><br>Start the ones you've exposed to Assist.</td>
+  </tr>
+  <tr>
+    <td valign="top">📍 <b>Room aware</b><br>Give Jibo an Area, and “the lights here” means the room he's in.</td>
+    <td valign="top">❓ <b>Questions</b><br>Ask whether something is on or how warm a room is. Nothing changes.</td>
+  </tr>
+  <tr>
+    <td valign="top">🔁 <b>Follow-ups</b><br>“Turn them off”, up to 30 seconds after a command.</td>
+    <td valign="top">🗣️ <b>Your own phrases</b><br>Up to 16 exact phrases, each starting a scene or script.</td>
+  </tr>
+  <tr>
+    <td valign="top">📣 <b>Announcements</b><br>Automations can speak through Jibo, if you allow it.</td>
+    <td valign="top">📊 <b>15 robot sensors</b><br>Battery, head touch, temperatures and more, live in Home Assistant.</td>
+  </tr>
+</table>
 
-This beta requires Home Assistant **2026.8.1 or newer**, BE **13.2.2**, and Services **13.0.8** in a Home Assistant mode (`home_assistant` or `home_assistant_ssh`). OS **13.0.7** remains the baseline. Software and extracted-archive lifecycle checks passed on **HA 2026.8.1 and 2026.9.4**; the physical direct session passed on **2026.9.4**. BE 13.2.2 passed complete packaging, a native update, normal startup, and all 21 installed source checks. See [release validation](docs/validation.md) for the artifact-specific evidence.
+## Try saying
 
-1. Update Jibo to the compatible robot software. In HACS, add `https://github.com/Paskooter/phoenix-home-assistant` as a custom **Integration** repository, enable prereleases, and select **0.3.0b3**. Restart HA.
-2. Put HA and Jibo on a network where HA can reach Jibo's TCP 9443. Local mDNS uses UDP 5353; the flow supports manual host entry.
-3. Prepare the HA form at **Settings → Devices & services → Add integration → Phoenix** before starting the timed pairing.
-4. On Jibo, open **Settings → Home Assistant → Start pairing**, then enter its displayed local host and port in HA. The pairing window lasts **120 seconds**.
-5. Compare all **eight digits** shown by Jibo and HA. If they match, approve on Jibo and confirm the match in HA. Cancel if they differ or you did not start the pairing.
-6. Choose **Done** and leave Settings so Jibo shows his normal face. Assign the paired Jibo device to an HA **Area**, then expose the devices you want through **Settings → Voice assistants → Expose**.
+Start every request, follow-ups included, with a new “Hey Jibo”.
 
-Pairing needs no Phoenix console code, jibo.io password, or HA access token. One robot accepts one HA pairing. Pairing a replacement revokes its old connection. Do not expose TCP 9443 or mDNS to the Internet.
+| To | Say |
+| :--- | :--- |
+| Switch a light | “Turn on the bedroom light.” · “Turn off the kitchen lights.” |
+| Light the room Jibo is in | “Turn on the lights here.” |
+| Dim or brighten | “Set the bedroom light brightness to fifty percent.” |
+| Change color | “Set the bedroom light to blue.” |
+| Flip a switch | “Turn on the garden switch.” |
+| Start a scene or script | “Activate the dinner scene.” · “Run the relax script.” |
+| Ask about your home | “Are the lights here on?” · “What is the kitchen temperature?” |
+| Follow up, within 30 seconds | “Turn them off.” · “Set it to blue.” · “Make them dimmer.” |
+| Anything else Assist understands | “Ask Home Assistant to turn on Cooking Lamp.” |
 
-[Installation, migration, and removal](docs/installation.md) explains manual installation, certificate changes, and upgrading an existing cloud entry.
+Use the names, aliases and Areas your devices already have in Home Assistant, which works out what you mean.
 
-## Commands, rooms, and questions
+<details>
+<summary><b>How rooms, questions and follow-ups behave</b></summary>
+<br>
 
-Use your own Assist names and aliases. Each voice command, including a follow-up, starts with a new “Hey Jibo” turn.
+- **Rooms.** “Here” and “turn on the lights” use the Area you give the Jibo device. Without one, Jibo asks you to set up the room instead of switching the whole home. Naming a device or room still works.
+- **Questions** only read states you've exposed to Assist; they never run a conversation agent. Unknown, ambiguous, unavailable or unexposed targets give an error. Temperature and humidity need a matching sensor or climate reading.
+- **Follow-ups** reuse the devices from your last successful command, on the same Jibo, for up to 30 seconds. “Dimmer” and “brighter” step brightness by about ten percentage points, and need a usable brightness on every target. Home Assistant checks exposure and capabilities again. A disconnect, restart, error or uncertain result clears the follow-up.
+- **Jibo's own commands** stay his. Time, volume, sleep, jokes, weather, cancelling and replies inside a running skill keep working as before.
 
-| Purpose | Example |
-| --- | --- |
-| Named light | Turn on the bedroom light. |
-| Room lights | Turn on the lights here. |
-| Light off | Turn off the kitchen lights. |
-| Brightness | Set the bedroom light brightness to fifty percent. |
-| Supported color | Set the bedroom light to blue. |
-| Named switch | Turn on the garden switch. |
-| Scene or script | Activate the dinner scene. / Run the relax script. |
-| Explicit invocation | Ask Home Assistant to turn on Cooking Lamp. |
-| Read-only question | Are the lights here on? / What is the kitchen temperature? |
+</details>
 
-Home Assistant resolves names, aliases, areas, supported sentences, and features. Assign the Jibo device to an HA area for “here” or “turn on the lights.” Without an assigned area, a generic room command asks for room setup instead of expanding to the whole home. An explicit target name remains usable.
+## Before you start
 
-Local state questions read only Assist-exposed states and do not invoke an executing conversation agent. Unknown, ambiguous, unavailable, or unexposed targets return an error. Temperature and humidity questions need a corresponding sensor or climate measurement.
+| You need | Details |
+| :--- | :--- |
+| **Home Assistant** | 2026.8.1 or newer; tested on 2026.8.1 and 2026.9.4 |
+| **Jibo's software** | BE 13.3.0 and Services 13.0.8 in `home_assistant` or `home_assistant_ssh` mode, on OS 13.0.7 |
+| **Your network** | Home Assistant can reach Jibo on local TCP 9443. No port forwarding or public URL |
+| **A Phoenix server** | Jibo still uses Phoenix, such as jibo.io, to turn speech into text |
 
-For up to **30 seconds** after a successful home turn, the same robot can use fresh resolved targets in phrases such as “turn them off,” “set it to blue,” or “make them dimmer.” Relative brightness changes by about ten percentage points and requires usable brightness on every target. HA rechecks exposure and device capabilities. Disconnect, restart, errors, or uncertain results clear the context.
+You won't need a Phoenix console code, your jibo.io password or a Home Assistant access token.
 
-Ordinary Jibo commands, cancellation, and active-skill replies keep their routing. A cloud routing hint cannot create a native wake, extend follow-up expiry, or authorize a home action.
+## Install
 
-## Routine phrases and conversation agents
+1. In HACS, add `https://github.com/Paskooter/phoenix-home-assistant` as a custom repository, type **Integration**. The **Open in HACS** button above takes you there.
+2. Open **Phoenix**, allow beta versions, choose **0.4.0b1** and download it.
+3. Restart Home Assistant. Refresh your browser if Phoenix doesn't appear when you add an integration.
 
-In **Phoenix → Configure**, add an exact routine phrase and select an Assist-exposed scene or script. For example, map “reading time” to an invented reading scene. Matching normalizes case, whitespace, and final punctuation, then requires an exact match. Up to 16 bounded phrases are supported. HA checks exposure again before activation and reports a scene or script as **started**, without claiming every resulting device state.
+<details>
+<summary><b>Install by hand instead</b></summary>
+<br>
 
-The default conversation agent is **Home Assistant (built-in)**. Configure may select another installed agent, including Jev. Its provider settings and permissions remain local HA settings, and its own data handling applies. A missing selected agent produces an unavailable error without silently switching agents. Slow work can exceed the voice deadline.
+Download `phoenix.zip` from the [latest release](https://github.com/Paskooter/phoenix-home-assistant/releases) and extract it into `custom_components/phoenix/` in your Home Assistant configuration directory, so the manifest ends up at `custom_components/phoenix/manifest.json`. Don't copy the repository root there. Restart Home Assistant.
 
-## Robot sensors
+</details>
 
-Each directly paired robot provides these 15 entities. Values stay on the paired LAN connection and are read only.
+## Pair a Jibo
 
-| Entity | Reading |
-| --- | --- |
-| Battery | Percent |
-| Battery temperature | Temperature |
-| Camera | Idle, active preview, or disabled by the hatch |
-| Charging state | Charging, not charging, or not plugged in |
-| CPU temperature | Temperature |
-| Fan speed | Percent of maximum |
-| Hatch state | Open or closed |
-| Head touch | On or off, with immediate touch updates |
-| Main board temperature | Temperature |
-| Microphone RMS | Sound level in dB; no audio samples |
-| Online | Authenticated direct connection health |
-| Plugged in | Plugged in or unplugged |
-| Sleeping | Native asleep state |
-| Speaker volume | Percent; does not change volume |
-| System voltage | Volts |
+1. **Open the setup form.** In HA, go to **Settings → Devices & services → Add integration → Phoenix**.
+2. **Start pairing on Jibo.** Open **Settings → Home Assistant → Start pairing**. His screen shows his address and an eight-digit code valid for 120 seconds.
+3. **Enter the address and code in HA.** The port defaults to **9443**. Include leading zeroes. Submit once; both devices finish automatically.
+4. **Choose Done on Jibo.** He returns to his face. **Manage** has separate replacement and disconnect confirmation screens.
+5. **Choose what he may control.** Assign Jibo an HA Area and expose devices under **Settings → Voice assistants → Expose**. Start with one light.
 
-HA converts native Celsius temperatures to your preferred display unit. Missing or stale readings become unavailable within 30 seconds; a disconnected socket clears all measurements. Camera describes native preview/hatch status and provides no image stream. An idle preview does not mean Jibo's perception cameras are powered off.
+HA uses Jibo's locally stored nickname or actual four-word native name; a device name you explicitly set in HA takes precedence. Each robot has its own entry and one HA pairing. A deliberate replacement requires **Manage → Replace connection** and confirmation on Jibo.
 
-## Announcements from HA
+Existing local links survive an upgrade without pairing again. New pairing and controls require **BE 13.3.0**. A wrong or expired code grants no access; start a new window if needed. Never expose TCP 9443 or mDNS to the Internet.
 
-Announcements are **off by default**. Enable the local **Allow announcements** option in **Phoenix → Configure** when you want automations to speak through this robot. Direct permission is local; the legacy console permission does not enable it, and there is no second robot toggle. Each new local session starts with permission off until authenticated HA preferences apply the saved option. The direct announcement path passed software checks; physical playback and interruption have not been retested on this direct beta.
+## How it works
 
-Choose optional quiet hours in the same options. They use HA's time zone and may cross midnight. Announcements use Jibo's current volume; there is no per-announcement volume setting.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Paskooter/phoenix-home-assistant/main/docs/images/how-it-works.svg" width="100%" alt="Phoenix, outside your home network, turns speech into text during a “Hey Jibo” turn. Inside your home network, Jibo sends the request to Home Assistant over a paired, encrypted connection on TCP 9443, and Assist runs it and replies.">
+</p>
 
-In **Developer tools → Actions**, choose **Notifications: Send a message** and the paired Jibo's **Announcement** entity. An automation can use:
+When you say “Hey Jibo”, Phoenix turns your words into text, as it does for all of Jibo's voice requests. Jibo checks that the request belongs to that voice turn, then sends it straight to Home Assistant, whose Assist runs it. Jibo speaks the reply.
+
+- **The home connection is local.** Home Assistant opens a certificate-pinned TLS connection to Jibo on TCP 9443. Device states, results, pairing credentials and the connection itself stay on that path, and it doesn't depend on Phoenix.
+- **Phoenix still hears you.** Voice recognition needs Phoenix, which sees what you say. This doesn't add offline recognition or full transcript privacy. Firmware your operator provides is trusted too.
+- **You decide what Jibo can reach:** only what you expose to Assist. Scenes and scripts do whatever you configured them to do.
+
+Read more in [trust and permissions](https://github.com/Paskooter/phoenix-home-assistant/blob/main/docs/security.md).
+
+## Make it yours
+
+Everything after pairing lives in Home Assistant.
+
+| To | Go to |
+| :--- | :--- |
+| Make “here” mean Jibo's room | Give the Jibo device an **Area** |
+| Choose what Jibo can control | <kbd>Settings</kbd> › <kbd>Voice assistants</kbd> › <kbd>Expose</kbd> |
+| Add your own routine phrases | **Phoenix** › **Configure** |
+| Use another conversation agent | **Phoenix** › **Configure** |
+| Allow announcements, set quiet hours | **Phoenix** › **Configure** |
+
+**Routine phrases.** Map an exact phrase, such as “reading time”, to a scene or script you've exposed. You can add up to 16. Matching ignores case, extra spaces and final punctuation, but otherwise needs the exact phrase. Home Assistant checks exposure again before starting it, and Jibo says it **started**, without claiming every device's final state.
+
+**Conversation agents.** The default is **Home Assistant (built-in)**, and no LLM is needed. You can choose another installed agent, such as [Jev](https://github.com/Paskooter/ha-conversation-jev); its own settings, permissions and data handling then apply. If the chosen agent goes missing, Jibo reports it as unavailable rather than quietly switching. A slow agent can run past the voice deadline.
+
+## Announcements
+
+Automations can speak through Jibo once you allow it. Turn on **Allow announcements** in **Phoenix** › **Configure**; it's off by default. Optional quiet hours there use Home Assistant's time zone and can cross midnight.
+
+In <kbd>Developer tools</kbd> › <kbd>Actions</kbd>, choose **Notifications: Send a message** and your Jibo's **Announcement** entity, or use it in an automation:
 
 ```yaml
 action: notify.send_message
@@ -103,22 +170,115 @@ data:
   message: "Dinner is ready."
 ```
 
-Use plain text of at most **300 characters**, without a title. Quiet hours, disabled permission, an offline or busy robot, and expiry reject the request without queuing it. Success requires acknowledgement that native speech completed. A lost response is uncertain and is never retried automatically. A native voice turn or supported local touch interruption can stop the owned announcement; cancellation does not claim any completed device action was undone.
+- Plain text of up to 300 characters, without a title. Jibo uses his current volume; there's no per-message volume.
+- Quiet hours, permission turned off, an offline or busy Jibo, or expiry rejects the message. Nothing is queued for later.
+- Success means Jibo finished speaking. A lost reply is uncertain and never retried automatically.
+- A new “Hey Jibo”, or a supported touch, can stop an announcement. Stopping it doesn't undo anything already done.
 
-## Diagnostics and uncertain results
+<details>
+<summary><b>More about announcement permission</b></summary>
+<br>
 
-**Connection** and robot diagnostics describe the paired HA–Jibo LAN session. They do not establish Phoenix recognition availability or distinguish a powered-off robot from every possible network failure. Diagnostics should omit credentials, pins, addresses, household identifiers, and utterances.
+Permission is local to Home Assistant: the older Phoenix console setting doesn't enable it, and there's no second switch on Jibo. Each new connection starts with announcements off until Home Assistant applies your saved option.
 
-Requests have short deadlines and are remembered durably before execution. Reconnect and restart do not queue or replay actions. If a response is lost, the device might already have changed. Check its state before trying again.
+</details>
 
-Light and switch on/off commands wait for their resolved HA targets to report the requested state within the command deadline. Scene, script, and custom-agent outcomes retain their own completion semantics. See [troubleshooting](docs/troubleshooting.md).
+> [!NOTE]
+> Direct announcements passed software checks, but physical playback and interruption haven't been retested on this beta. Neither has the connection while Phoenix restarts.
 
-## Upgrade and remove
+## Control Jibo from Home Assistant
 
-Upgrading a protocol-1 cloud entry puts it into **migration required**. It does not reconnect to Phoenix's old cloud socket or silently fall back. Preserve the HA backup, physically pair one robot, and explicitly choose its old device/area mapping. Agent, routine, and quiet-hours options remain; announcements require a fresh local opt-in. Each additional robot needs its own pairing and entry. After successful local pairing, HA attempts to revoke the old cloud installation and removes its old credential. If that cleanup cannot reach Phoenix, follow the manual console cleanup instruction.
+In **Phoenix → Configure**, enable only the controls you want. Screen, ring, audio, sleep, skills and camera each have a separate permission, **off by default**. Controls appear only when the paired firmware advertises support. Their state comes from native observations; an accepted action does not invent a resulting state. See [robot controls](docs/robot-controls.md) for actions and examples.
 
-Removing the HA entry attempts to revoke the local pairing and removes its local request ledger. If the robot is unreachable, use **Settings → Home Assistant → Forget** on Jibo and confirm before considering access revoked. Disabling an entry stops HA's socket but is not a durable robot revocation. Forgetting or revoking a pairing keeps direct mode selected; it does not restore cloud home commands or announcements. See [installation and removal](docs/installation.md) for the full sequence.
+| Control | What it supports |
+| --- | --- |
+| Screen text | Plain text up to 300 characters; text/image actions with a 0.1–60 second duration |
+| Screen image | A PNG/JPEG from HA’s local Media directory; up to 1 MiB and 1280 × 720 pixels |
+| Ring light | RGB color and brightness; owned LED animation expires automatically |
+| Speaker | Master volume and local PCM16 WAV playback, pause, resume and stop |
+| Sleep | Native sleep and wake handlers; no synthetic wake phrase |
+| Start installed skill | Clock, Radio stations, Yoga and Word of the day when installed |
+| Stop Home Assistant activity | Stop only activity opened by this integration; available even during owned work |
+| Camera preview | Explicit, visible sessions up to 60 seconds, with hatch protection and bounded still-image MJPEG |
+| Announcement | Plain speech through Jibo’s familiar voice, with native completion acknowledgement |
 
-## Development and evidence
+Media is uploaded directly from HA over pinned TLS, kept only in robot memory for a short time, and consumed once. Robot controls accept no arbitrary web URLs, shell commands, JavaScript or method names. Touch, a native voice turn, new robot activity, disconnect and permission removal preempt owned screen, ring, audio, skill and camera resources.
 
-[Protocol](docs/protocol.md) documents the wire contract. [Security](docs/security.md) explains its trust boundary. [Validation](docs/validation.md) separates direct hardware and software results from historical cloud-connector evidence. Public fixtures use invented devices and identities; private captures and household storage stay out of Git.
+Quiet hours apply to announcements, audio controls and audible skills. Ordinary Jibo commands keep their native routing. Opening a camera card does not start capture: use **Camera: Turn on** explicitly. The active session displays a notice on Jibo; opening the hatch or touching his head stops it. This is a short preview, not continuous video, gallery access, or microphone streaming.
+
+### Supported work and next additions
+
+Single-code setup, connection management, all 15 sensors, voice commands, announcements and the controls above are implemented in this release. Hardware evidence is recorded separately in [validation](docs/validation.md).
+
+Weather launch from HA, arbitrary Nimbus execution, full-rate multi-camera video and remote media URLs need additional native command paths and testing. They are research items; no release date or compatibility promise is attached. Jibo’s ordinary spoken weather command remains available.
+
+## Robot sensors
+
+Each paired Jibo adds 15 read-only entities. Their values stay on the local connection.
+
+<details>
+<summary><b>See all 15 sensors</b></summary>
+<br>
+
+| Entity | Reading |
+| :--- | :--- |
+| Battery | Percent |
+| Battery temperature | Temperature |
+| Camera | Idle, active preview, or disabled by the hatch |
+| Charging state | Charging, not charging, or not plugged in |
+| CPU temperature | Temperature |
+| Fan speed | Percent of maximum |
+| Hatch state | Open or closed |
+| Head touch | On or off, updated the moment he's touched |
+| Main board temperature | Temperature |
+| Microphone RMS | Sound level in dB; no audio samples |
+| Online | Health of the authenticated direct connection |
+| Plugged in | Plugged in or unplugged |
+| Sleeping | Jibo's own asleep state |
+| Speaker volume | Percent; reading it doesn't change the volume |
+| System voltage | Volts |
+
+Temperatures arrive in Celsius and show in your preferred unit. A missing or stale reading becomes unavailable within 30 seconds, and a lost connection clears them all. **Camera** reports the preview and hatch status only, with no image stream, and an idle preview doesn't mean Jibo's perception cameras are off.
+
+</details>
+
+## Good to know
+
+- **One request at a time, in English.** Requests joined with “and” or “then” aren't supported.
+- **If Jibo can't confirm a result**, the device might have changed anyway. Check it before asking again. Requests have short deadlines, are recorded before they run, and are never queued or replayed after a reconnect or restart.
+- **Lights and switches** wait for Home Assistant to report the new state before Jibo answers. Scenes, scripts and other agents report their own kind of completion.
+- **Diagnostics** describe the Jibo and Home Assistant connection only. They can't tell you whether Phoenix voice recognition is available, or tell a switched-off Jibo apart from every network problem. They're designed to leave out credentials, pins, addresses, household identifiers and anything said.
+
+## Upgrading from the cloud beta
+
+Links made with the older [0.2.0b2](https://github.com/Paskooter/phoenix-home-assistant/releases/tag/v0.2.0b2) went through Phoenix's cloud connector. After you upgrade, each one shows **migration required**. Its cloud connection stays stopped, and nothing quietly falls back to it.
+
+1. Keep a Home Assistant backup somewhere private. It contains credentials, so don't share it.
+2. Update Jibo's software, then reconfigure the old entry. Choose the old Jibo device whose Area to keep, or choose not to copy a room.
+3. Pair that Jibo as above. Agent, routine and quiet-hours options carry over; turn announcements on again if you want them.
+4. Pair any other Jibo as its own entry.
+
+Once pairing succeeds, Home Assistant tries to revoke the old cloud link and removes its credential. If it couldn't reach Phoenix, disconnect the old link yourself in the Phoenix console. On jibo.io, that's the [Home Assistant page](https://jibo.io/app#/home-assistant).
+
+## Remove
+
+1. While Jibo is reachable, delete his **Phoenix** entry in <kbd>Settings</kbd> › <kbd>Devices & services</kbd>. Home Assistant tries to revoke the pairing and clears its request records.
+2. If Home Assistant says Jibo was unreachable, open <kbd>Settings</kbd> › <kbd>Home Assistant</kbd> › <kbd>Manage</kbd> › <kbd>Disconnect</kbd> on Jibo and confirm. Treat access as revoked only after this step, or after Home Assistant confirms it revoked the pairing.
+3. Once no Phoenix entries remain, remove the HACS download or manual files and restart Home Assistant.
+
+Disabling an entry only stops its connection; it doesn't revoke the pairing. **Manage → Disconnect** keeps direct mode on and never brings back cloud home control or announcements. Before giving Jibo to someone else, use **Manage → Disconnect** and remove the old entry.
+
+## Documentation
+
+| Guide | Covers |
+| :--- | :--- |
+| [Installation, upgrade and removal](https://github.com/Paskooter/phoenix-home-assistant/blob/main/docs/installation.md) | Every step in detail, including address changes, certificates and replacement |
+| [Troubleshooting](https://github.com/Paskooter/phoenix-home-assistant/blob/main/docs/troubleshooting.md) | Symptoms and what to check |
+| [Trust and permissions](https://github.com/Paskooter/phoenix-home-assistant/blob/main/docs/security.md) | What is trusted, stored and revoked |
+| [Protocol](https://github.com/Paskooter/phoenix-home-assistant/blob/main/docs/protocol.md) | The wire contract between Home Assistant and Jibo |
+| [Validation](https://github.com/Paskooter/phoenix-home-assistant/blob/main/docs/validation.md) | Hardware and software results, kept apart, and what's still open |
+| [Contributing](https://github.com/Paskooter/phoenix-home-assistant/blob/main/CONTRIBUTING.md) | Running the tests |
+
+Public fixtures use invented devices and identities. Private captures and household storage stay out of Git.
+
+<p align="center"><sub>Part of <a href="https://github.com/Paskooter/phoenix">Phoenix</a>, which brings Jibo back. MIT licensed.</sub></p>

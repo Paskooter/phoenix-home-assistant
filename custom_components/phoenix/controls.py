@@ -75,7 +75,7 @@ def plain_text(value: Any, limit: int, *, empty: bool = False) -> bool:
         isinstance(value, str)
         and (empty or value.strip())
         and len(value) <= limit
-        and not any(ord(char) < 32 and char not in "\n\t" for char in value)
+        and not any((ord(char) < 32 and char not in "\n\t") or ord(char) == 127 for char in value)
     )
 
 
@@ -154,7 +154,7 @@ def validate_action(action: str, payload: Any, catalog: list[dict[str, str]] | N
     if "duration_ms" in payload and (
         not isinstance(payload["duration_ms"], int)
         or isinstance(payload["duration_ms"], bool)
-        or not 1 <= payload["duration_ms"] <= 60_000
+        or not 100 <= payload["duration_ms"] <= 60_000
     ):
         raise ValueError("Invalid duration")
     if action == "display_text" and not plain_text(payload.get("text"), MAX_SCREEN_TEXT):

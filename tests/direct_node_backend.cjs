@@ -30,15 +30,20 @@ if (process.argv[2] === '--seed') {
         onInterrupt: function () { return function () {}; },
         getTelemetry: function () { return telemetry; }
     };
-    var server = new native.LocalHomeServer({ directory: directory, runtime: runtime,
-        host: '127.0.0.1', port: 0, name: 'Invented native Jibo', firmwareVersion: '13.2.1',
+    var server;
+    var controls = require('./direct_node_controls.cjs')(modulePath, runtime, function () { return server; }, function () {
+        return telemetry || { observed_at_monotonic_ms: server.monotonic(), values: { hatch_open: false } };
+    });
+    server = new native.LocalHomeServer({ directory: directory, runtime: runtime, controls: controls.adapter,
+        host: '127.0.0.1', port: 0, name: 'Invented native Jibo', firmwareVersion: '13.3.0',
         getOwnerBinding: function () { return crypto.createHash('sha256').update('invented-owner').digest('hex'); },
         onPairing: function (event) { pairingEvent = event; } });
     function status() {
         return { ready: !!(server.session && server.session.ready), generation: server.state.generation,
             paired: !!server.state.credential_hash, direct_enabled: server.state.direct_enabled,
             pairing_version: pairingEvent && pairingEvent.pairing_version, code: pairingEvent && pairingEvent.code,
-            phase: pairingEvent && pairingEvent.phase, speaks: speaks, routing: server.routingPreference() };
+            phase: pairingEvent && pairingEvent.phase, speaks: speaks, routing: server.routingPreference(),
+            controls: controls.adapter.snapshot(), calls: controls.calls };
     }
     function respond(id, result, error) {
         process.stdout.write(JSON.stringify({ id: id, result: result, error: error }) + '\n');
@@ -48,6 +53,7 @@ if (process.argv[2] === '--seed') {
         case 'open': return server.openPairing();
         case 'cancel_pairing': return server.cancelPairing();
         case 'status': return status();
+        case 'touch': controls.touch(); return true;
         case 'speak_result': speechResult = request.value; return true;
         case 'busy': busy = request.value === true; server.broadcastRoster(); return true;
         case 'command':
@@ -60,7 +66,7 @@ if (process.argv[2] === '--seed') {
         case 'disconnect':
             if (server.session) server.session.socket.terminate(); return true;
         case 'revoke': server.revoke(); return true;
-        case 'close': return server.destroy().then(function () { return true; });
+        case 'close': return server.destroy().then(function () { return controls.adapter.destroy(); }).then(function () { return true; });
         default: throw new Error('Unknown fixture operation');
         }
     }

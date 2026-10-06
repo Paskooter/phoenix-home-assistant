@@ -12,7 +12,7 @@ from .controls_api import async_upload_media
 
 async def async_setup_entry(hass, entry, async_add_entities):
     platform = entity_platform.async_get_current_platform()
-    duration = {vol.Optional("duration_ms"): vol.All(vol.Coerce(int), vol.Range(min=1, max=60_000))}
+    duration = {vol.Optional("duration_ms"): vol.All(vol.Coerce(int), vol.Range(min=100, max=60_000))}
     platform.async_register_entity_service(
         "show_text", {vol.Required("text"): cv.string, **duration}, "async_show_text"
     )

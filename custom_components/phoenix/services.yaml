@@ -1,0 +1,42 @@
+show_text:
+  target:
+    entity:
+      integration: phoenix
+      domain: text
+  fields:
+    text:
+      required: true
+      selector:
+        text:
+          multiline: true
+    duration_ms:
+      selector:
+        number:
+          min: 100
+          max: 60000
+          step: 100
+          unit_of_measurement: ms
+          mode: box
+show_image:
+  target:
+    entity:
+      integration: phoenix
+      domain: text
+  fields:
+    media_content_id:
+      required: true
+      selector:
+        text:
+    duration_ms:
+      selector:
+        number:
+          min: 100
+          max: 60000
+          step: 100
+          unit_of_measurement: ms
+          mode: box
+clear_screen:
+  target:
+    entity:
+      integration: phoenix
+      domain: text

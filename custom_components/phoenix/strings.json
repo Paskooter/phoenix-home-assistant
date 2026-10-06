@@ -4,20 +4,22 @@
     "step": {
       "user": {
         "title": "Pair Jibo locally",
-        "description": "Open Home Assistant pairing on Jibo, then enter its hostname.local or LAN IP address. Home Assistant and Jibo must be able to reach each other on your local network. You will compare a code on both devices before approving the connection. No Phoenix connection code or Home Assistant access token is needed.",
+        "description": "On Jibo, open Settings → Home Assistant → Start pairing. Enter the address and eight-digit code shown on his screen. Submit within two minutes; both devices finish automatically. No Phoenix password or Home Assistant access token is needed.",
         "data": {
           "host": "Jibo hostname or LAN IP address",
           "port": "Local port",
-          "legacy_device_id": "Existing Jibo device to copy its room"
+          "legacy_device_id": "Existing Jibo device to copy its room",
+          "connection_code": "Eight-digit code shown on Jibo"
         }
       },
       "reauth_confirm": {
         "title": "Pair Jibo again",
-        "description": "Open a fresh Home Assistant pairing window on the same Jibo. Compare the new code before approving on Jibo and here. Existing credentials and certificate pins will only be replaced after that physical pairing succeeds.",
+        "description": "On this Jibo, open Settings → Home Assistant → Manage → Replace connection and confirm. Enter the newly displayed address and eight-digit code. Submit within two minutes; both devices finish automatically. The old connection is replaced only after successful physical-code verification.",
         "data": {
           "host": "Jibo hostname or LAN IP address",
           "port": "Local port",
-          "legacy_device_id": "Existing Jibo device to copy its room"
+          "legacy_device_id": "Existing Jibo device to copy its room",
+          "connection_code": "Eight-digit code shown on Jibo"
         }
       },
       "reconfigure": {
@@ -26,14 +28,8 @@
         "data": {
           "host": "Jibo hostname or LAN IP address",
           "port": "Local port",
-          "legacy_device_id": "Existing Jibo device to copy its room"
-        }
-      },
-      "pair_confirm": {
-        "title": "Compare the pairing code",
-        "description": "Home Assistant code: **{code}**. Check that Jibo shows exactly the same eight digits. If they differ, reject the request on Jibo and stop this flow. If they match, approve on Jibo, then confirm below. Pairing expires after two minutes.",
-        "data": {
-          "confirm_pairing": "The codes match and I approved this connection on Jibo"
+          "legacy_device_id": "Existing Jibo device to copy its room",
+          "connection_code": "Eight-digit code shown on Jibo"
         }
       }
     },
@@ -43,18 +39,22 @@
       "unsupported_tls": "Jibo did not offer the required encrypted local connection. Check the direct integration firmware.",
       "unsupported_protocol": "Jibo uses an unsupported local protocol. Update the robot and this integration.",
       "certificate_changed": "The local certificate differs from the pinned pairing. No credential was sent to that peer. Verify the robot and start physical pairing again.",
-      "pairing_verification_failed": "The pairing exchange could not be verified. Reject it on Jibo and start a fresh pairing window.",
-      "pairing_pending": "Approve the matching code on Jibo first, then confirm again here.",
-      "pairing_expired": "The pairing window expired. Close this flow, open a fresh window on Jibo and start again.",
+      "pairing_verification_failed": "The physical code or authenticated exchange could not be verified. Check the code and address; start a fresh window if needed.",
+      "pairing_expired": "The two-minute window expired. On Jibo, start pairing again and enter the new code.",
       "pairing_rejected": "Jibo rejected this pairing. Open a fresh window only if you want to try again.",
       "pairing_unavailable": "Open a fresh physical Home Assistant pairing window on Jibo. Another pairing may already be in progress.",
       "invalid_claim": "This pairing claim was rejected. Stop this flow and start a fresh physical pairing window.",
       "pairing_failed": "Jibo could not complete the pairing. Check its local screen before starting a new window.",
       "rate_limited": "Too many pairing attempts. Wait and open a fresh physical pairing window.",
-      "codes_not_confirmed": "Compare both codes and approve on Jibo before confirming here.",
       "invalid_legacy_device": "Choose one of this legacy installation’s Jibo devices, or explicitly choose not to copy a room.",
       "invalid_auth": "The stored local credential was rejected. Pair the same Jibo again through reauthentication.",
-      "wrong_robot": "This address belongs to a different robot or pairing generation. The stored connection was not replaced."
+      "wrong_robot": "This address belongs to a different robot or pairing generation. The stored connection was not replaced.",
+      "invalid_pairing_code": "Enter all eight digits shown on Jibo, including any leading zero. The code is valid only during the current physical pairing window.",
+      "pairing_upgrade_required": "New pairing needs BE 13.3.0 or later. Update Jibo first. An existing verified local connection can stay paired.",
+      "pairing_busy": "Another pairing attempt is in progress. Wait briefly and retry while Jibo’s code is still visible.",
+      "pairing_incomplete": "Jibo did not confirm a complete pairing. Check his screen before starting a fresh pairing window.",
+      "pairing_confirmation_lost": "The connection was lost before Home Assistant could confirm pairing. Jibo may already show Connected. Check his screen; start a fresh physical window to replace an incomplete connection.",
+      "local_storage_unavailable": "Home Assistant could not save the local connection. Check available storage and the Home Assistant log before starting a fresh physical pairing window."
     },
     "abort": {
       "already_configured": "This locally identified Jibo is already configured.",
@@ -173,13 +173,48 @@
       "announcement": {
         "name": "Announcement"
       }
+    },
+    "text": {
+      "screen_text": {
+        "name": "Screen text"
+      }
+    },
+    "light": {
+      "ring_light": {
+        "name": "Ring light"
+      }
+    },
+    "media_player": {
+      "speaker": {
+        "name": "Speaker"
+      }
+    },
+    "switch": {
+      "sleep_control": {
+        "name": "Sleep"
+      }
+    },
+    "select": {
+      "installed_skill": {
+        "name": "Start installed skill"
+      }
+    },
+    "button": {
+      "stop_activity": {
+        "name": "Stop Home Assistant activity"
+      }
+    },
+    "camera": {
+      "camera": {
+        "name": "Camera preview"
+      }
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Jibo voice settings",
-        "description": "Choose the conversation agent for Jibo home commands. The default is Home Assistant’s built-in agent; another agent is used only when explicitly selected. Assign the Jibo device to an area for room context. Allow announcements is a local opt-in; they use Jibo’s current master volume. Quiet hours use Home Assistant’s time zone and may cross midnight. Add an exact routine phrase and an Assist-exposed scene or script; reopen these settings to add another phrase. Routines are reported as started, without claiming their resulting device states.",
+        "title": "Jibo voice and local controls",
+        "description": "Choose the conversation agent for home commands; the built-in Home Assistant agent is the default. Assign Jibo to an area for room context. Allow only the local robot controls you want; each is off by default. Camera permission allows explicit sessions of at most 60 seconds with a visible screen notice and a closed hatch. Quiet hours use Home Assistant’s time zone and block announcements, audio playback and audible skills. Add exact routine phrases for Assist-exposed scenes or scripts.",
         "data": {
           "conversation_agent": "Conversation agent",
           "quiet_hours_enabled": "Enable quiet hours",
@@ -188,7 +223,13 @@
           "shortcut_phrase": "Add routine phrase",
           "shortcut_target": "Routine scene or script",
           "remove_shortcuts": "Remove routine phrases",
-          "allow_announcements": "Allow announcements"
+          "allow_announcements": "Allow announcements",
+          "allow_screen": "Allow screen text and images",
+          "allow_ring_light": "Allow ring light control",
+          "allow_audio": "Allow speaker volume and local audio playback",
+          "allow_sleep": "Allow sleep and wake",
+          "allow_skills": "Allow supported installed skills",
+          "allow_camera": "Allow explicit camera preview sessions"
         }
       }
     },
@@ -238,6 +279,55 @@
     },
     "request_storage": {
       "message": "The local request ledger could not be saved. This announcement was not sent. Repair the integration before trying a new request."
+    },
+    "control_unavailable": {
+      "message": "Jibo control is unavailable: {reason}. No new action was sent."
+    },
+    "control_confirmation_lost": {
+      "message": "Home Assistant could not confirm the result. Jibo may have acted. This action will not be retried automatically."
+    },
+    "invalid_control_media": {
+      "message": "Choose local Home Assistant media: PNG/JPEG up to 1 MiB and 1280 × 720 pixels, or PCM16 WAV up to 8 MiB and 60 seconds. Web URLs and remote media are not supported."
+    },
+    "control_media_upload_failed": {
+      "message": "The local media upload could not be confirmed. Playback or display was not requested."
+    },
+    "control_camera_inactive": {
+      "message": "Start the Camera preview explicitly with camera.turn_on. Camera permission, a closed hatch and an idle Jibo are required; each session lasts at most 60 seconds."
+    }
+  },
+  "services": {
+    "show_text": {
+      "name": "Show text on Jibo",
+      "description": "Display plain text on this paired Jibo for a bounded duration.",
+      "fields": {
+        "text": {
+          "name": "Text",
+          "description": "Plain text, up to 300 characters."
+        },
+        "duration_ms": {
+          "name": "Duration",
+          "description": "Milliseconds, from 100 to 60000; defaults to 10000."
+        }
+      }
+    },
+    "show_image": {
+      "name": "Show an image on Jibo",
+      "description": "Show a PNG or JPEG from Home Assistant’s configured local media directory.",
+      "fields": {
+        "media_content_id": {
+          "name": "Local media",
+          "description": "A media-source://media_source/ identifier for an image up to 1 MiB and 1280 × 720 pixels."
+        },
+        "duration_ms": {
+          "name": "Duration",
+          "description": "Milliseconds, from 100 to 60000; defaults to 10000."
+        }
+      }
+    },
+    "clear_screen": {
+      "name": "Clear Jibo’s Home Assistant screen",
+      "description": "Close only the screen opened by this integration; leave other robot activity alone."
     }
   }
 }

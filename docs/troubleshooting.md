@@ -1,24 +1,18 @@
-# Direct connection troubleshooting
+# Troubleshooting
 
-This page covers the **0.3.0b3 direct candidate**. Hardware and release acceptance are pending. The old cloud code/socket instructions apply only to legacy 0.2 releases.
+## Pairing
 
-| Symptom | What to check |
-| --- | --- |
-| Cannot find the robot's address | Check its local network address and compatible Services mode. The candidate HA form accepts a manual host; an mDNS/UDP 5353 result is only a hint and still requires physical pairing and pin validation. |
-| Cannot connect locally | HA must reach the robot on TCP 9443. Check LAN routing, isolation/firewall rules, host, compatible BE/Services, and whether the endpoint is running. Do not expose the port to the Internet. |
-| Pairing unavailable or pending | Open the robot's physical 120-second pairing window. Only one candidate fits that window. Compare and approve on Jibo, then confirm in HA. A cloud code cannot open the window. |
-| Pairing screen closes or clips the countdown | BE 13.2.0 interrupted the pairing screen. On BE 13.2.1, physical Start opened the screen but the Cancel button clipped the countdown, so comparison and pairing were not completed. The BE 13.2.2 layout correction still needs artifact-pinned software and physical acceptance. |
-| Eight-digit numbers differ | Cancel. Do not approve either side or save the observed certificate. Start a fresh physical pairing attempt and check the intended robot. |
-| Pairing expired or rejected | Start again from the physical control. Old numbers and pairing material cannot authorize a later window. |
-| Certificate or identity changed | Stop and verify the robot. Discovery cannot replace a stored pin. Use a new physically approved pairing only for an intentional identity/replacement change; never disable certificate checks. |
-| Address changed or wrong robot on reconfigure | Reconfigure verifies the new address using the saved pin, credential, and local robot UUID. A changed pin or revoked key requires physical reauthentication; add a separate entry for a different robot. |
-| Migration required | Pair one robot directly and explicitly choose the old Jibo device/area mapping. The old cloud socket stays stopped; no fallback is attempted. |
-| Legacy cleanup incomplete | After successful local pairing, disconnect the old cloud installation in the Phoenix console when its automatic revocation was offline. |
-| Pairing replaced or revoked | Another physical replacement or Forget invalidated the old access. Pair deliberately again; do not run cloned HA entries concurrently. |
-| Local connection lost | Check the robot and LAN path. HA reconnects with bounded backoff. Lost work is not queued or replayed. |
-| Voice unavailable while connected | Local diagnostics do not establish Phoenix ASR availability. Voice still requires recognized text during a real native wake turn. |
-| Request storage error | Fix HA's private request/config storage permissions or corruption, then reload. The integration must fail closed rather than execute without durable deduplication. |
-| Robot identity storage error | Use local owner recovery. A paired certificate/identity must not regenerate silently. Do not manually copy another robot's identity or credential. |
+New pairing requires BE **13.3.0**. Start on Jibo first and enter his address and all eight digits in HA within two minutes. Leading zeroes count. Both devices complete automatically; there is no second Approve step. An existing verified local pairing does not need replacement for an upgrade.
+
+A wrong or expired code creates no access. Start a fresh window if it expired. If a completion reply was lost, check whether Jibo shows Connected before using Manage → Replace connection to start again. Do not copy pairing credentials between installations.
+
+## Missing controls or permission errors
+
+In **Phoenix → Configure**, enable only the permissions you want. Screen, ring, audio, sleep, skills and camera each start off. Controls require a fresh authenticated roster, acknowledged permission and supported native firmware. A busy robot or active head touch blocks new work. Stop/cleanup stay available for the integration's owned activity.
+
+Camera capture needs a closed hatch, an idle robot and **Camera: Turn on**. Opening a card alone does not start capture. The session expires within 60 seconds; missing or stale observations become unavailable. Use another explicit session to resume. This is still-image MJPEG, not full-rate video.
+
+Images and audio must be in HA's configured local Media directory. Use a `media-source://media_source/` identifier, not an HTTP URL or filesystem path. Check PNG/JPEG dimensions and size, or PCM16 WAV encoding, duration and size. MP3 and OGG are unsupported. See [robot controls](robot-controls.md).
 
 ## Commands, room context, and routines
 
@@ -40,7 +34,7 @@ A lost completion acknowledgement means uncertainty. Check whether speech happen
 
 ## Removal and private diagnostics
 
-If removal could not reach Jibo, open **Settings → Home Assistant → Forget** on Jibo and confirm. HA unload/disable alone stops its socket without proving durable revocation. Direct mode stays selected after revocation or Forget; the old cloud home-action path does not reactivate.
+If removal could not reach Jibo, open **Settings → Home Assistant → Manage → Disconnect** on Jibo and confirm **Disconnect**. HA unload/disable alone stops its socket without proving durable revocation. Direct mode stays selected after revocation or Disconnect; the old cloud home-action path does not reactivate.
 
 Diagnostics should contain bounded status, protocol/version, error codes, anonymous counts, and timing; they should omit credentials, certificate pins, addresses, names, household identifiers, and utterances. Do not share config-entry storage, request ledgers, robot identity files, private captures, or backups. Report the generic error and exact software versions instead.
 

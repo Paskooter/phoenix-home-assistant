@@ -33,6 +33,7 @@ from .const import (
     DOMAIN,
     LOCAL_PORT,
 )
+from .controls import CONTROL_OPTIONS
 from .local_api import begin_pairing, finish_pairing, normalize_endpoint, verify_pairing
 
 
@@ -232,6 +233,8 @@ class PhoenixOptionsFlow(config_entries.OptionsFlow):
                             CONF_QUIET_HOURS_END, current_options.get(CONF_QUIET_HOURS_END, DEFAULT_QUIET_HOURS_END)
                         ),
                     }
+                    for key in CONTROL_OPTIONS.values():
+                        options[key] = user_input.get(key, current_options.get(key, False))
                     try:
                         time.fromisoformat(options[CONF_QUIET_HOURS_START])
                         time.fromisoformat(options[CONF_QUIET_HOURS_END])
@@ -275,6 +278,8 @@ class PhoenixOptionsFlow(config_entries.OptionsFlow):
                 selector.EntitySelectorConfig(domain=["scene", "script"])
             ),
         }
+        for key in CONTROL_OPTIONS.values():
+            schema[vol.Optional(key, default=current_options.get(key, False))] = selector.BooleanSelector()
         if shortcuts:
             schema[vol.Optional("remove_shortcuts", default=[])] = selector.SelectSelector(
                 selector.SelectSelectorConfig(
