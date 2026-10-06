@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-labelledby="title desc">
+  <title id="title">How Phoenix for Home Assistant works</title>
+  <desc id="desc">Phoenix, outside your home network, turns speech into text during a “Hey Jibo” voice turn. Inside your home network, Jibo sends the request to Home Assistant over a paired, encrypted connection on TCP port 9443, and Home Assistant Assist runs it and replies. Device states, results and pairing keys stay on your network.</desc>
+  <style>
+    .t { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    .flow { animation: flow 1.1s linear infinite; }
+    .flow-warm { animation: flow-warm 1.3s linear infinite; }
+    .eye { transform-box: fill-box; transform-origin: center; animation: blink 6.5s infinite; }
+    @keyframes flow { to { stroke-dashoffset: -20; } }
+    @keyframes flow-warm { to { stroke-dashoffset: -20; } }
+    @keyframes blink { 0%, 93%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.12); } 97% { transform: scaleY(1); } }
+    @media (prefers-reduced-motion: reduce) { .flow, .flow-warm, .eye { animation: none; } }
+  </style>
+  <defs>
+    <clipPath id="card"><rect width="1280" height="420" rx="28"/></clipPath>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#131722"/>
+      <stop offset="1" stop-color="#090b10"/>
+    </linearGradient>
+    <radialGradient id="warm" gradientUnits="userSpaceOnUse" cx="220" cy="190" r="300">
+      <stop offset="0" stop-color="#ff8c3c" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#ff8c3c" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="cool" gradientUnits="userSpaceOnUse" cx="860" cy="200" r="460">
+      <stop offset="0" stop-color="#6ea8fe" stop-opacity=".14"/>
+      <stop offset="1" stop-color="#6ea8fe" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="flame" x1=".1" y1="0" x2=".9" y2="1">
+      <stop offset="0" stop-color="#ffd08a"/>
+      <stop offset=".45" stop-color="#ffb347"/>
+      <stop offset="1" stop-color="#ff5470"/>
+    </linearGradient>
+    <linearGradient id="phoenixFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b2717"/>
+      <stop offset="1" stop-color="#1f150e"/>
+    </linearGradient>
+    <linearGradient id="haFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22355a"/>
+      <stop offset="1" stop-color="#152238"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".12"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="shell" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fbfcfe"/>
+      <stop offset=".55" stop-color="#e6eaf1"/>
+      <stop offset="1" stop-color="#b9c1cf"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eef1f6"/>
+      <stop offset="1" stop-color="#bcc4d1"/>
+    </linearGradient>
+    <radialGradient id="face" cx=".42" cy=".38" r=".75">
+      <stop offset="0" stop-color="#1c2230"/>
+      <stop offset="1" stop-color="#05070a"/>
+    </radialGradient>
+    <radialGradient id="eyeFill" cx=".4" cy=".36" r=".7">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".6" stop-color="#eaf2ff"/>
+      <stop offset="1" stop-color="#b8d2ff"/>
+    </radialGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
+    <filter id="shadow" x="-30%" y="-200%" width="160%" height="500%"><feGaussianBlur stdDeviation="6"/></filter>
+  </defs>
+
+  <g clip-path="url(#card)" class="t">
+    <rect width="1280" height="420" fill="url(#bg)"/>
+    <rect width="1280" height="420" fill="url(#warm)"/>
+    <rect width="1280" height="420" fill="url(#cool)"/>
+
+    <!-- Your home network: everything inside stays there. -->
+    <rect x="452" y="36" width="796" height="348" rx="26" fill="#6ea8fe" fill-opacity=".035"
+          stroke="#6ea8fe" stroke-opacity=".4" stroke-width="2" stroke-dasharray="10 9"/>
+    <path transform="translate(482 56) scale(.9)" d="M3.5 10.5 12 3.5l8.5 7M5.5 9.5V20h13V9.5" fill="none" stroke="#8fb0e6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="512" y="75" font-size="13" font-weight="650" letter-spacing="2.4" fill="#8fa6cf">YOUR HOME NETWORK</text>
+    <text x="850" y="364" text-anchor="middle" font-size="16" fill="#9fb3d8">Device states, results and pairing keys stay on your network.</text>
+
+    <!-- Phoenix. -->
+    <rect x="150" y="100" width="140" height="140" rx="36" fill="url(#phoenixFill)" stroke="#ffb347" stroke-opacity=".45" stroke-width="2"/>
+    <rect x="150" y="100" width="140" height="140" rx="36" fill="url(#sheen)"/>
+    <path transform="translate(176.8 126.8) scale(2.7)" fill="url(#flame)"
+          d="M16 2c7 6.5 10 11.5 10 16.5 0 4-2.6 7.2-6.4 8.4 1.2-2.6 1-5.4-1-8.6-1.5-2.4-2-4.4-1.6-6.4-3 2.6-4.4 5-4.4 7.4 0 2.2.9 4.4 2.6 6.6C10.2 25 7 21.6 7 17.4 7 12.6 10 7.6 16 2Z"/>
+    <text x="220" y="294" text-anchor="middle" font-size="22" font-weight="650" fill="#f2f4f9">Phoenix</text>
+    <text x="220" y="322" text-anchor="middle" font-size="15" fill="#8b93a7">Turns speech into text</text>
+
+    <!-- The voice turn. -->
+    <line class="flow-warm" x1="306" y1="170" x2="578" y2="170" stroke="#ffb347" stroke-opacity=".85" stroke-width="7" stroke-linecap="round" stroke-dasharray="0 20"/>
+    <text x="374" y="148" text-anchor="middle" font-size="13" font-weight="650" letter-spacing="2.4" fill="#c79a6a">VOICE TURN</text>
+
+    <!-- Jibo. -->
+    <g transform="translate(414.4 55.84) scale(.62)">
+      <ellipse cx="380" cy="338" rx="96" ry="9" fill="#000" opacity=".55" filter="url(#shadow)"/>
+      <path d="M336 236c-1 16-4 28-9 40-9 20-25 34-28 46-2 8 3 12 13 12h136c10 0 15-4 13-12-3-12-19-26-28-46-5-12-8-24-9-40Z" fill="url(#body)"/>
+      <path d="M314 300c34-6 86-24 132-46" fill="none" stroke="#0b0e14" stroke-opacity=".18" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M330 262c24 2 72-8 102-20" fill="none" stroke="#0b0e14" stroke-opacity=".14" stroke-width="2" stroke-linecap="round"/>
+      <ellipse cx="380" cy="168" rx="86" ry="80" fill="url(#shell)"/>
+      <ellipse cx="346" cy="118" rx="34" ry="18" fill="#fff" opacity=".55" filter="url(#soft)"/>
+      <circle cx="388" cy="170" r="62" fill="url(#face)"/>
+      <circle cx="388" cy="170" r="62" fill="none" stroke="#fff" stroke-opacity=".08" stroke-width="2"/>
+      <g class="eye">
+        <circle cx="394" cy="166" r="24" fill="#9cc8ff" opacity=".7" filter="url(#soft)"/>
+        <circle cx="394" cy="166" r="21" fill="url(#eyeFill)"/>
+      </g>
+    </g>
+    <text x="650" y="294" text-anchor="middle" font-size="22" font-weight="650" fill="#f2f4f9">Jibo</text>
+    <text x="650" y="322" text-anchor="middle" font-size="15" fill="#8b93a7">Sends your request to Home Assistant</text>
+
+    <!-- The paired, local link. -->
+    <line class="flow" x1="726" y1="170" x2="918" y2="170" stroke="#6ea8fe" stroke-opacity=".9" stroke-width="7" stroke-linecap="round" stroke-dasharray="0 20"/>
+    <circle cx="822" cy="170" r="34" fill="#6ea8fe" fill-opacity=".1"/>
+    <circle cx="822" cy="170" r="26" fill="#10131b" stroke="#6ea8fe" stroke-opacity=".55" stroke-width="2"/>
+    <path transform="translate(806.4 154.4) scale(1.3)" d="M7 10.5V8a5 5 0 0 1 10 0v2.5M5.5 10.5h13a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1v-8.5a1 1 0 0 1 1-1Z"
+          fill="none" stroke="#a9cbff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="822" y="126" text-anchor="middle" font-size="13" font-weight="650" letter-spacing="2.4" fill="#8592ad">PAIRED · ENCRYPTED</text>
+    <text x="822" y="226" text-anchor="middle" font-size="13" font-weight="650" letter-spacing="2.4" fill="#66728c">TCP 9443</text>
+
+    <!-- Home Assistant. -->
+    <rect x="940" y="100" width="140" height="140" rx="36" fill="url(#haFill)" stroke="#6ea8fe" stroke-opacity=".5" stroke-width="2"/>
+    <rect x="940" y="100" width="140" height="140" rx="36" fill="url(#sheen)"/>
+    <path transform="translate(964.4 124.4) scale(3.8)" d="M3.5 10.5 12 3.5l8.5 7M5.5 9.5V20h13V9.5M12 17.2h.01M10.3 15.5a2.4 2.4 0 0 1 3.4 0M8.75 13.95a4.6 4.6 0 0 1 6.5 0"
+          fill="none" stroke="#b3d1ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="1010" y="294" text-anchor="middle" font-size="22" font-weight="650" fill="#f2f4f9">Home Assistant</text>
+    <text x="1010" y="322" text-anchor="middle" font-size="15" fill="#8b93a7">Assist runs it and replies</text>
+  </g>
+  <rect x=".75" y=".75" width="1278.5" height="418.5" rx="27.5" fill="none" stroke="#fff" stroke-opacity=".08" stroke-width="1.5"/>
+</svg>

@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="372" viewBox="0 0 1280 372" role="img" aria-labelledby="title desc">
+  <title id="title">Phoenix for Home Assistant</title>
+  <desc id="desc">Someone says “Hey Jibo, turn on the kitchen lights.” Jibo sends the request over a padlocked connection on the home network to Home Assistant, and a lamp lights up.</desc>
+  <style>
+    .t { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    .flow { animation: flow 1.1s linear infinite; }
+    .flow-warm { animation: flow-warm 1s linear infinite; }
+    .halo { animation: glow 3.2s ease-in-out infinite; }
+    .eye { transform-box: fill-box; transform-origin: center; animation: blink 6.5s infinite; }
+    @keyframes flow { to { stroke-dashoffset: -22; } }
+    @keyframes flow-warm { to { stroke-dashoffset: -16; } }
+    @keyframes glow { 0%, 100% { opacity: .72; } 50% { opacity: 1; } }
+    @keyframes blink { 0%, 93%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.12); } 97% { transform: scaleY(1); } }
+    @media (prefers-reduced-motion: reduce) { .flow, .flow-warm, .halo, .eye { animation: none; } }
+  </style>
+  <defs>
+    <clipPath id="card"><rect width="1280" height="372" rx="28"/></clipPath>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#131722"/>
+      <stop offset="1" stop-color="#090b10"/>
+    </linearGradient>
+    <radialGradient id="warm" gradientUnits="userSpaceOnUse" cx="360" cy="210" r="340">
+      <stop offset="0" stop-color="#ff8c3c" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#ff8c3c" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="cool" gradientUnits="userSpaceOnUse" cx="900" cy="170" r="330">
+      <stop offset="0" stop-color="#6ea8fe" stop-opacity=".2"/>
+      <stop offset="1" stop-color="#6ea8fe" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="#fff" fill-opacity=".07"/>
+    </pattern>
+    <radialGradient id="dotsFade" gradientUnits="userSpaceOnUse" cx="640" cy="186" r="640">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset="1" stop-color="#000"/>
+    </radialGradient>
+    <mask id="fade"><rect width="1280" height="372" fill="url(#dotsFade)"/></mask>
+    <linearGradient id="shell" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fbfcfe"/>
+      <stop offset=".55" stop-color="#e6eaf1"/>
+      <stop offset="1" stop-color="#b9c1cf"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eef1f6"/>
+      <stop offset="1" stop-color="#bcc4d1"/>
+    </linearGradient>
+    <radialGradient id="face" cx=".42" cy=".38" r=".75">
+      <stop offset="0" stop-color="#1c2230"/>
+      <stop offset="1" stop-color="#05070a"/>
+    </radialGradient>
+    <radialGradient id="eyeFill" cx=".4" cy=".36" r=".7">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".6" stop-color="#eaf2ff"/>
+      <stop offset="1" stop-color="#b8d2ff"/>
+    </radialGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
+    <filter id="shadow" x="-30%" y="-200%" width="160%" height="500%"><feGaussianBlur stdDeviation="6"/></filter>
+    <linearGradient id="haFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22355a"/>
+      <stop offset="1" stop-color="#152238"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".12"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="bulbHalo" gradientUnits="userSpaceOnUse" cx="1128" cy="152" r="104">
+      <stop offset="0" stop-color="#ffc061" stop-opacity=".55"/>
+      <stop offset=".45" stop-color="#ff9a3d" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#ff9a3d" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bulbGlass" cx=".45" cy=".38" r=".7">
+      <stop offset="0" stop-color="#fffaf0"/>
+      <stop offset=".55" stop-color="#ffd690"/>
+      <stop offset="1" stop-color="#ffab45"/>
+    </radialGradient>
+  </defs>
+
+  <g clip-path="url(#card)">
+    <rect width="1280" height="372" fill="url(#bg)"/>
+    <rect width="1280" height="372" fill="url(#dots)" mask="url(#fade)"/>
+    <rect width="1280" height="372" fill="url(#warm)"/>
+    <rect width="1280" height="372" fill="url(#cool)"/>
+
+    <!-- What was said. -->
+    <g class="t">
+      <path d="M62 54h200a22 22 0 0 1 22 22v40a22 22 0 0 1-22 22h-6l24 22-46-22H62a22 22 0 0 1-22-22V76a22 22 0 0 1 22-22Z"
+            fill="#ffffff" fill-opacity=".07" stroke="#ffffff" stroke-opacity=".16" stroke-width="1.5"/>
+      <text x="62" y="90" font-size="20" font-weight="600" fill="#f2f4f9">“Hey Jibo, turn on</text>
+      <text x="62" y="118" font-size="20" font-weight="600" fill="#f2f4f9">the kitchen lights.”</text>
+    </g>
+
+    <!-- Jibo. -->
+    <ellipse cx="380" cy="338" rx="96" ry="9" fill="#000" opacity=".55" filter="url(#shadow)"/>
+    <path d="M336 236c-1 16-4 28-9 40-9 20-25 34-28 46-2 8 3 12 13 12h136c10 0 15-4 13-12-3-12-19-26-28-46-5-12-8-24-9-40Z" fill="url(#body)"/>
+    <!-- Jibo's body turns on slanted joints; their seams give him his shape. -->
+    <path d="M314 300c34-6 86-24 132-46" fill="none" stroke="#0b0e14" stroke-opacity=".18" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M330 262c24 2 72-8 102-20" fill="none" stroke="#0b0e14" stroke-opacity=".14" stroke-width="2" stroke-linecap="round"/>
+    <ellipse cx="380" cy="168" rx="86" ry="80" fill="url(#shell)"/>
+    <ellipse cx="346" cy="118" rx="34" ry="18" fill="#fff" opacity=".55" filter="url(#soft)"/>
+    <circle cx="388" cy="170" r="62" fill="url(#face)"/>
+    <circle cx="388" cy="170" r="62" fill="none" stroke="#fff" stroke-opacity=".08" stroke-width="2"/>
+    <g class="eye">
+      <circle cx="394" cy="166" r="24" fill="#9cc8ff" opacity=".7" filter="url(#soft)"/>
+      <circle cx="394" cy="166" r="21" fill="url(#eyeFill)"/>
+    </g>
+
+    <!-- The paired, local link, padlocked. -->
+    <line class="flow" x1="486" y1="168" x2="794" y2="168" stroke="#6ea8fe" stroke-opacity=".9" stroke-width="8" stroke-linecap="round" stroke-dasharray="0 22"/>
+    <circle cx="640" cy="168" r="40" fill="#6ea8fe" fill-opacity=".1"/>
+    <circle cx="640" cy="168" r="30" fill="#10131b" stroke="#6ea8fe" stroke-opacity=".55" stroke-width="2"/>
+    <path transform="translate(622 150) scale(1.5)" d="M7 10.5V8a5 5 0 0 1 10 0v2.5M5.5 10.5h13a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1v-8.5a1 1 0 0 1 1-1Z"
+          fill="none" stroke="#a9cbff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text class="t" x="640" y="232" text-anchor="middle" font-size="13" font-weight="650" letter-spacing="2.4" fill="#8592ad">PAIRED · ENCRYPTED · LOCAL</text>
+
+    <!-- Home Assistant. -->
+    <rect x="812" y="86" width="164" height="164" rx="40" fill="url(#haFill)" stroke="#6ea8fe" stroke-opacity=".5" stroke-width="2"/>
+    <rect x="812" y="86" width="164" height="164" rx="40" fill="url(#sheen)"/>
+    <path transform="translate(841.2 115.2) scale(4.4)" d="M3.5 10.5 12 3.5l8.5 7M5.5 9.5V20h13V9.5M12 17.2h.01M10.3 15.5a2.4 2.4 0 0 1 3.4 0M8.75 13.95a4.6 4.6 0 0 1 6.5 0"
+          fill="none" stroke="#b3d1ff" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"/>
+    <text class="t" x="894" y="292" text-anchor="middle" font-size="19" font-weight="600" fill="#d7ddea">Home Assistant</text>
+
+    <!-- The light it turns on. -->
+    <line class="flow-warm" x1="998" y1="168" x2="1060" y2="168" stroke="#ffb347" stroke-opacity=".85" stroke-width="6" stroke-linecap="round" stroke-dasharray="0 16"/>
+    <circle class="halo" cx="1128" cy="152" r="104" fill="url(#bulbHalo)"/>
+    <path d="M1104 174c-12-12-14-34-4-50 12-18 44-18 56 0 10 16 8 38-4 50-6 6-8 14-8 20h-32c0-6-2-14-8-20Z" fill="url(#bulbGlass)"/>
+    <path d="M1117 170l7-20 8 13 7-17" fill="none" stroke="#ff7a3d" stroke-opacity=".75" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="1111" y="198" width="34" height="8" rx="3" fill="#8b94a8"/>
+    <rect x="1113" y="209" width="30" height="7" rx="3" fill="#737c90"/>
+    <rect x="1120" y="219" width="16" height="6" rx="3" fill="#5c6477"/>
+    <text class="t" x="1128" y="292" text-anchor="middle" font-size="19" font-weight="600" fill="#d7ddea">Kitchen lights</text>
+  </g>
+  <rect x=".75" y=".75" width="1278.5" height="370.5" rx="27.5" fill="none" stroke="#fff" stroke-opacity=".08" stroke-width="1.5"/>
+</svg>
