@@ -1,13 +1,13 @@
 # Direct connection troubleshooting
 
-This page covers the **0.3.0b3 direct candidate**. Hardware and release acceptance are pending. The old cloud code/socket instructions apply only to legacy 0.2 releases.
+This page covers the **0.3.0b3 direct beta**. Physical pairing, voice-controlled light on/off, ordinary Jibo speech and all 15 sensors passed on HA 2026.9.4; see [validation](validation.md) for what remains. The old cloud code/socket instructions apply only to legacy 0.2 releases.
 
 | Symptom | What to check |
 | --- | --- |
-| Cannot find the robot's address | Check its local network address and compatible Services mode. The candidate HA form accepts a manual host; an mDNS/UDP 5353 result is only a hint and still requires physical pairing and pin validation. |
+| Cannot find the robot's address | Check its local network address and compatible Services mode. The HA form accepts a manual host; an mDNS/UDP 5353 result is only a hint and still requires physical pairing and pin validation. |
 | Cannot connect locally | HA must reach the robot on TCP 9443. Check LAN routing, isolation/firewall rules, host, compatible BE/Services, and whether the endpoint is running. Do not expose the port to the Internet. |
 | Pairing unavailable or pending | Open the robot's physical 120-second pairing window. Only one candidate fits that window. Compare and approve on Jibo, then confirm in HA. A cloud code cannot open the window. |
-| Pairing screen closes or clips the countdown | BE 13.2.0 interrupted the pairing screen. On BE 13.2.1, physical Start opened the screen but the Cancel button clipped the countdown, so comparison and pairing were not completed. The BE 13.2.2 layout correction still needs artifact-pinned software and physical acceptance. |
+| Pairing screen closes or clips the countdown | Update Jibo to BE 13.2.2. BE 13.2.0 interrupted the pairing screen, and on BE 13.2.1 the Cancel button clipped the countdown. The BE 13.2.2 screen showed the host, countdown, all eight digits and the approval controls without overlap in the physical session. |
 | Eight-digit numbers differ | Cancel. Do not approve either side or save the observed certificate. Start a fresh physical pairing attempt and check the intended robot. |
 | Pairing expired or rejected | Start again from the physical control. Old numbers and pairing material cannot authorize a later window. |
 | Certificate or identity changed | Stop and verify the robot. Discovery cannot replace a stored pin. Use a new physically approved pairing only for an intentional identity/replacement change; never disable certificate checks. |
@@ -36,7 +36,7 @@ Check the entry's local **Allow announcements** option, quiet hours, local conne
 
 Use the robot's Announcement entity with a plain message of at most 300 characters and no title or volume override. A busy/offline robot or quiet-hours rejection never creates a queued message.
 
-A lost completion acknowledgement means uncertainty. Check whether speech happened before retrying manually. Reconnect, restart, or native interruption must not replay it. Native touch/voice interruption behavior and independence from Phoenix restarts still need direct candidate validation.
+A lost completion acknowledgement means uncertainty. Check whether speech happened before retrying manually. Reconnect, restart, or native interruption must not replay it. Native touch/voice interruption and independence from Phoenix restarts still need physical validation on this beta.
 
 ## Removal and private diagnostics
 
@@ -44,4 +44,4 @@ If removal could not reach Jibo, open **Settings → Home Assistant → Forget**
 
 Diagnostics should contain bounded status, protocol/version, error codes, anonymous counts, and timing; they should omit credentials, certificate pins, addresses, names, household identifiers, and utterances. Do not share config-entry storage, request ledgers, robot identity files, private captures, or backups. Report the generic error and exact software versions instead.
 
-See [installation and migration](installation.md), [security](security.md), and [pending validation](validation.md).
+See [installation and migration](installation.md), [security](security.md), and [validation](validation.md).

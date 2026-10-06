@@ -1,6 +1,6 @@
 # Trust and permissions
 
-This document covers the **0.3.0b3 direct candidate** with BE 13.2.2 and Services 13.0.8. Direct hardware and release acceptance are pending. The published 0.2.0b2 cloud connector has a different trust boundary.
+This document covers the **0.3.0b3 direct beta** with BE 13.2.2 and Services 13.0.8. Physical pairing, voice-controlled light on/off and the paired sensor session passed; see [validation](validation.md) for what remains. The published 0.2.0b2 cloud connector has a different trust boundary.
 
 ## Physical pairing and the local connection
 
@@ -18,7 +18,7 @@ A native, single-use wake admission is required for each home command or state q
 
 Phoenix supplies trusted recognized text during an admitted voice turn and can observe that utterance. Operator-provided firmware and its existing fixed trust configuration remain trusted. Local pairing authenticates the robot–HA connection; voice still needs Phoenix and does not gain offline recognition or full transcript privacy.
 
-Connection health and opt-in local announcements are intended to operate during a Phoenix restart. A functioning LAN session does not prove that cloud recognition is available. This independence remains a direct candidate validation requirement.
+Connection health and opt-in local announcements are intended to operate during a Phoenix restart. A functioning LAN session does not prove that cloud recognition is available. This independence has not yet been physically validated for this beta.
 
 ## Permissions in Home Assistant
 
@@ -32,7 +32,7 @@ Disconnecting or cancelling stops future admission where possible. It cannot und
 
 ## Credentials, storage, and no replay
 
-HA stores the paired credential and certificate pin privately in its config-entry storage. The robot keeps its local certificate key, identity, pairing generation, and credential in private owner storage. The candidate requires atomic durable writes and rejection of unsafe symlink or corrupted identity state. A paired identity is never regenerated automatically after an error.
+HA stores the paired credential and certificate pin privately in its config-entry storage. The robot keeps its local certificate key, identity, pairing generation, and credential in private owner storage. The robot endpoint requires atomic durable writes and rejects unsafe symlink or corrupted identity state. A paired identity is never regenerated automatically after an error.
 
 HA remembers request IDs durably before accepting or executing commands. The robot persists announcement admission before speech. These records are deduplication tombstones, not delivery queues. Expired, disconnected, or uncertain work is never replayed after reconnect or restart. A lost result is reported as uncertain.
 

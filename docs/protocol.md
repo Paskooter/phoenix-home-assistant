@@ -1,6 +1,6 @@
 # Direct pairing v1 and session protocol v2
 
-This is the public wire contract for the **0.3.0b3 direct candidate**, BE **13.2.2**, and Services **13.0.8**. It requires implementation review and direct release validation; historical connector-v1 results do not establish this protocol's acceptance.
+This is the public wire contract for the **0.3.0b3 direct beta**, BE **13.2.2**, and Services **13.0.8**. Its physical pairing, light commands and sensor session passed on 2026-10-06 (see [validation](validation.md)); historical connector-v1 results do not establish this protocol's acceptance.
 
 The transport is HA-initiated TLS 1.2 to a robot on TCP **9443**, using ECDHE-RSA AES-GCM suites. The robot creates a separate RSA-2048/SHA-256 self-signed endpoint certificate and local UUID. HA pins the lowercase SHA-256 of the complete peer DER certificate. Discovery, including mDNS on UDP 5353, supplies addresses only; manual hosts are supported.
 
@@ -103,7 +103,7 @@ HA sends `robot_action` for fixed action `announce`, with the current session, f
 
 The owner's HA-local **Allow announcements** permission defaults off. The endpoint resets permission to false each session and accepts the saved option through authenticated `preferences.announcements_enabled`; its roster reflects this as `announcements_allowed`. No second portal or robot toggle is required. HA applies quiet hours; the robot checks live admission, presence/busy state, permission, and expiry, persists the admission before speech, and uses its existing owned-speech/stop primitives at the current volume. Native voice/HJ or supported local touch interruption participates in that speech lifecycle.
 
-A matching `action_result` acknowledges spoken completion or returns an honest error, expiry, or uncertainty. Lost completion and interrupted speech are not retried. Connection/reboot never replays an announcement. Local announcements and health must remain independent of Phoenix; candidate checks are pending.
+A matching `action_result` acknowledges spoken completion or returns an honest error, expiry, or uncertainty. Lost completion and interrupted speech are not retried. Connection/reboot never replays an announcement. Local announcements and health must remain independent of Phoenix; physical checks of that independence are still pending.
 
 ## Robot telemetry
 
