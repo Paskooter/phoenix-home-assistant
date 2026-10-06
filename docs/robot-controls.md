@@ -91,6 +91,17 @@ feed at up to 15 frames per second. JPEG snapshots remain available. Native
 video is video-only: no microphone audio, stereo feed or gallery access is
 provided. Video is never saved on Jibo by this integration.
 
+For a dashboard live view, add a Picture entity card and choose **Live** for
+its camera view. Use your Camera entity's actual ID; for example:
+
+```yaml
+type: picture-entity
+entity: camera.jibo_camera
+camera_view: live
+show_name: true
+show_state: true
+```
+
 Opening a dashboard or requesting a picture cannot activate capture. Touching
 Jibo's head, opening his hatch, a new voice turn or native activity, stopping the
 camera, disconnecting or removing permission stops the owned session. A lost

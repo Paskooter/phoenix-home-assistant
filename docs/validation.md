@@ -2,13 +2,24 @@
 
 ## 0.4.0b1 / BE 13.3.0 candidate
 
-The integration passed **137/137 tests on actual Home Assistant 2026.8.1** and
-**137 test cases on 2026.9.4**, using Python **3.14.8**, with no skips. The first full HA 2026.9.4 run passed 136 cases; one
-post-dispatch case expired before its fixture action under shared host load.
-All four post-dispatch variants then passed in isolation. Both matrices included
-real built-in conversation processing, the actual optional Jev SDK with provider
-HTTP intercepted, synthetic TLS peers and the private native robot endpoint
-running on official **Node 6.5.0**. No paid provider or household action occurred.
+The [release CI](https://github.com/Paskooter/phoenix-home-assistant/actions/runs/37431060566)
+passed HACS, hassfest and both supported HA versions. Local validation used
+actual **Home Assistant 2026.8.1 and 2026.9.4**, with Python **3.14.8**. The
+2026.8.1 full run passed **137/137**, with no skips. All 137 cases were covered
+on 2026.9.4 by public CI and the three private native-endpoint cases.
+
+These checks include real built-in conversation processing, the actual optional
+Jev SDK with provider HTTP intercepted, synthetic TLS peers and the private
+native robot endpoint on official **Node 6.5.0**. No paid provider or household
+action occurred. The exact flat release ZIP also passed a clean-install pairing,
+unload/reload and moving-video camera HTTP check on HA 2026.9.4.
+
+Some local full runs on the shared host hit command deadlines while its filesystem
+journal stalled. The post-dispatch variants passed in isolation; all three
+private Node 6.5.0 cases passed in **5.03 seconds** with synthetic state in an
+isolated tmpfs. Protocol deadlines, durable-admission calls and production
+storage rules were unchanged. These host failures are recorded separately from
+the passing public CI and hardware results.
 
 Coverage includes single-code pairing, wrong/expired/reused codes, mutual proof
 and certificate binding, completion recovery, credential revocation, forged
