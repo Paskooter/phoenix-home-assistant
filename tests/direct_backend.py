@@ -6,6 +6,7 @@ Node 6 fixture separately checks the actual endpoint before release.
 
 import asyncio
 import hashlib
+import hmac
 import json
 import secrets
 import ssl
@@ -20,6 +21,8 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
+from custom_components.phoenix._vendor.aiohomekit_srp import SrpServer
+
 CAPABILITIES = [
     "robot_roster",
     "robot_action",
@@ -29,7 +32,8 @@ CAPABILITIES = [
     "routine_shortcuts",
     "telemetry",
 ]
-PAIR_DOMAIN = "phoenix-local-pair-v1\n"
+PAIR_DOMAIN = "phoenix-local-pair-v2\n"
+SUITE = "SRP6a-3072-SHA512"
 BASE = "/phoenix/local/v1"
 
 
@@ -66,7 +70,7 @@ def tls_identity(directory):
 
 
 class SyntheticLocalRobot:
-    """Only fixture IPC may open/approve pairing; HTTP cannot simulate touch."""
+    """Only fixture IPC may open pairing; HTTP cannot simulate touch."""
 
     def __init__(self, directory):
         self.context, self.fingerprint = tls_identity(directory)
@@ -92,12 +96,20 @@ class SyntheticLocalRobot:
         self.preferences = {}
         self.connections = 0
         self.waiters = {}
-        self.tamper_commitment = False
+        self.tamper_challenge = False
+        self.tamper_server_binding = False
+        self.lose_finish_response = False
+        self.status_unavailable = False
+        self.pairing_code = None
+        self.pairing_expires = 0
+        self.pair_attempts = 0
         self.redirect = None
+        self.identity_pairing_version = 2
         self.runner = None
 
     async def start(self):
         app = web.Application(client_max_size=8192)
+        app.router.add_get(BASE + "/identity", self._identity)
         app.router.add_post(BASE + "/pair/{step}", self._pair)
         app.router.add_delete(BASE + "/pairing", self._revoke)
         app.router.add_get(BASE + "/connect", self._connect)
@@ -115,103 +127,146 @@ class SyntheticLocalRobot:
             await self.runner.cleanup()
 
     def open_pairing(self):
+        """Synthetic fixture IPC represents physical Start; HTTP cannot open it."""
         self.pairing_open = True
+        self.pairing_code = f"{secrets.randbelow(100_000_000):08d}"
+        self.pairing_expires = asyncio.get_running_loop().time() + 120
+        self.pair_attempts = 0
         self.candidate = None
+        return self.pairing_code
 
-    def approve(self):
-        assert self.candidate and self.candidate.get("sas")
-        self.candidate["approved"] = True
+    async def _identity(self, request):
+        self.http_requests.append((request.path, request.headers.get("Authorization"), {}))
+        return web.json_response(
+            {
+                "v": 1,
+                "pairing_version": self.identity_pairing_version,
+                "robot_id": self.robot_id,
+                "name": self.name,
+                "firmware_version": "13.2.2",
+            }
+        )
 
     async def _pair(self, request):
         body = await request.json()
         self.http_requests.append((request.path, request.headers.get("Authorization"), body))
-        if not self.pairing_open:
-            return web.json_response({"v": 1, "code": "pairing_unavailable"}, status=410)
         step = request.match_info["step"]
+        if body.get("v") != 2:
+            return web.json_response({"v": 2, "code": "pairing_upgrade_required"}, status=400)
+        now = asyncio.get_running_loop().time()
         if step == "begin":
+            if not self.pairing_open or now >= self.pairing_expires:
+                return web.json_response({"v": 2, "code": "pairing_expired"}, status=410)
             if self.candidate:
-                return web.json_response({"v": 1, "code": "pairing_unavailable"}, status=409)
-            pair_id, server_nonce = str(uuid4()), secrets.token_hex(32)
-            self.candidate = {
+                return web.json_response({"v": 2, "code": "pairing_busy"}, status=409)
+            if self.pair_attempts >= 5:
+                return web.json_response({"v": 2, "code": "rate_limited"}, status=429)
+            self.pair_attempts += 1
+            assert body["fingerprint"] == self.fingerprint and body["robot_id"] == self.robot_id
+            server = SrpServer(PAIR_DOMAIN + self.fingerprint + "\n" + self.robot_id, self.pairing_code)
+            server.b = int.from_bytes(secrets.token_bytes(32), "big")
+            server.set_client_public_key(bytes.fromhex(body["client_public"]))
+            # The upstream server computes B dynamically. Refresh its padded B
+            # after overriding the synthetic ephemeral exponent.
+            server.B_b = server.get_public_key_bytes()
+            server.B = int.from_bytes(server.B_b, "big")
+            pair_id = str(uuid4())
+            self.candidate = candidate = {
                 **body,
                 "pair_id": pair_id,
-                "server_nonce": server_nonce,
-                "expires": asyncio.get_running_loop().time() + 120,
-                "approved": False,
+                "server": server,
+                "salt": bytes(server.salt_b).hex(),
+                "server_public": bytes(server.B_b).hex(),
+                "generation": self.generation + 1,
+                "name": self.name,
+                "firmware_version": "13.2.2",
+                "expires": min(now + 30, self.pairing_expires),
             }
-            commitment = hashed(
+            candidate["transcript"] = hashed(
                 PAIR_DOMAIN
-                + "server\n"
+                + "transcript\n"
                 + "\n".join(
                     (
+                        SUITE,
                         self.fingerprint,
                         self.robot_id,
                         pair_id,
-                        body["client_commitment"],
-                        body["claim_hash"],
-                        server_nonce,
+                        body["client_nonce"],
+                        candidate["salt"],
+                        body["client_public"],
+                        candidate["server_public"],
+                        str(candidate["generation"]),
+                        self.name,
+                        "13.2.2",
                     )
                 )
             )
             return web.json_response(
                 {
-                    "v": 1,
+                    "v": 2,
+                    "suite": SUITE,
                     "pair_id": pair_id,
                     "robot_id": self.robot_id,
                     "fingerprint": self.fingerprint,
-                    "server_commitment": "00" * 32 if self.tamper_commitment else commitment,
-                    "expires_in": 120,
+                    "salt": candidate["salt"],
+                    "server_public": "00" * 384 if self.tamper_challenge else candidate["server_public"],
+                    "generation": candidate["generation"],
+                    "name": self.name,
+                    "firmware_version": "13.2.2",
+                    "expires_in": 30,
                 }
             )
         candidate = self.candidate
-        if (
-            not candidate
-            or candidate["pair_id"] != body.get("pair_id")
-            or candidate["expires"] < asyncio.get_running_loop().time()
+        if not candidate or candidate["pair_id"] != body.get("pair_id") or now >= candidate["expires"]:
+            return web.json_response({"v": 2, "code": "pairing_expired"}, status=410)
+        server = candidate["server"]
+        key = server.get_session_key_bytes()
+
+        def mac(value):
+            return hmac.new(key, (PAIR_DOMAIN + value).encode(), hashlib.sha256).hexdigest()
+
+        if step == "status":
+            if self.status_unavailable:
+                return web.json_response({"v": 2, "code": "pairing_unavailable"}, status=503)
+            if body.get("recovery_proof") != mac("status\n" + candidate["transcript"]):
+                return web.json_response({"v": 2, "code": "pairing_rejected"}, status=403)
+            if "result" not in candidate:
+                return web.json_response({"v": 2, "code": "pairing_incomplete"}, status=409)
+            return web.json_response(candidate["result"])
+        if step != "finish":
+            return web.json_response({"v": 2, "code": "pairing_upgrade_required"}, status=400)
+        proof = bytes.fromhex(body.get("client_proof", ""))
+        if not server.verify_clients_proof_bytes(proof) or body.get("client_binding") != mac(
+            "client\n" + candidate["transcript"]
         ):
-            return web.json_response({"v": 1, "code": "pairing_expired"}, status=410)
-        if step == "reveal":
-            client_nonce = body["client_nonce"]
-            if (
-                hashed(PAIR_DOMAIN + "client\n" + client_nonce + "\n" + candidate["claim_hash"])
-                != candidate["client_commitment"]
-            ):
-                return web.json_response({"v": 1, "code": "invalid_claim"}, status=403)
-            sas_hash = hashed(
-                PAIR_DOMAIN
-                + "sas\n"
-                + "\n".join(
-                    (
-                        self.fingerprint,
-                        self.robot_id,
-                        candidate["pair_id"],
-                        client_nonce,
-                        candidate["server_nonce"],
-                        candidate["claim_hash"],
-                    )
-                )
-            )
-            candidate["sas"] = f"{int(sas_hash[:8], 16) % 100_000_000:08d}"
-            return web.json_response(
-                {"v": 1, "pair_id": candidate["pair_id"], "server_nonce": candidate["server_nonce"]}
-            )
-        if step != "finish" or hashed(body.get("claim_secret", "")) != candidate["claim_hash"]:
-            return web.json_response({"v": 1, "code": "invalid_claim"}, status=403)
-        if not candidate["approved"]:
-            return web.json_response({"v": 1, "code": "pairing_pending"}, status=409)
+            self.candidate = None
+            return web.json_response({"v": 2, "code": "pairing_rejected"}, status=403)
         if "result" not in candidate:
-            self.credential = secrets.token_hex(32)
-            self.generation += 1
+            self.credential = mac("credential\n" + candidate["transcript"])
+            self.generation = candidate["generation"]
             self.direct_enabled = True
+            self.pairing_open = False
+            self.pairing_code = None
+            candidate["expires"] = self.pairing_expires
             await self.disconnect()
+            server_proof = server.get_proof_bytes(proof).hex()
             candidate["result"] = {
-                "v": 1,
+                "v": 2,
+                "suite": SUITE,
+                "pair_id": candidate["pair_id"],
                 "robot_id": self.robot_id,
-                "credential": self.credential,
                 "generation": self.generation,
                 "name": self.name,
                 "firmware_version": "13.2.2",
+                "server_proof": server_proof,
+                "server_binding": "00" * 32
+                if self.tamper_server_binding
+                else mac("server\n" + candidate["transcript"] + "\n" + server_proof),
             }
+        if self.lose_finish_response:
+            self.lose_finish_response = False
+            request.transport.close()
+            return web.Response()
         return web.json_response(candidate["result"])
 
     def _authorized(self, request):
@@ -368,16 +423,13 @@ async def wait_for(predicate, seconds=8):
 
 
 async def linked_entry(hass, robot):
-    """Exercise the real user flow, compare both independent codes and approve."""
-    robot.open_pairing()
-    started = await hass.config_entries.flow.async_init(
-        "phoenix", context={"source": "user"}, data={"host": robot.host, "port": robot.port}
+    """Exercise automatic one-form pairing with a synthetic physical code."""
+    code = robot.open_pairing()
+    finished = await hass.config_entries.flow.async_init(
+        "phoenix",
+        context={"source": "user"},
+        data={"host": robot.host, "port": robot.port, "connection_code": code},
     )
-    assert started["type"] == "form" and started["step_id"] == "pair_confirm", started
-    assert started["description_placeholders"]["code"] == robot.candidate["sas"]
-    assert robot.credential is None
-    robot.approve()
-    finished = await hass.config_entries.flow.async_configure(started["flow_id"], {"confirm_pairing": True})
     assert finished["type"] == "create_entry", finished
     entry = finished["result"]
     await wait_for(lambda: hasattr(entry, "runtime_data") and entry.runtime_data.client.ready and robot.preferences)

@@ -49,17 +49,18 @@ class NativePeer:
             self.pending.pop(self.sequence, None)
 
     async def linked_entry(self, hass):
-        await self.rpc("open")
-        form = await hass.config_entries.flow.async_init(
-            "phoenix", context={"source": "user"}, data={"host": self.host, "port": self.port}
-        )
-        assert form["step_id"] == "pair_confirm", form
+        opened = await self.rpc("open")
         state = await self.rpc("status")
-        assert form["description_placeholders"]["code"] == state["sas"]
+        assert state["code"] == opened["code"] and state["pairing_version"] == 2
         assert not state["paired"]
-        assert await self.rpc("approve")
-        created = await hass.config_entries.flow.async_configure(form["flow_id"], {"confirm_pairing": True})
+        created = await hass.config_entries.flow.async_init(
+            "phoenix",
+            context={"source": "user"},
+            data={"host": self.host, "port": self.port, "connection_code": opened["code"]},
+        )
         assert created["type"] == "create_entry", created
+        state = await self.rpc("status")
+        assert state["phase"] == "paired" and state.get("code") is None and state["paired"]
         entry = created["result"]
         await wait_for(lambda: entry.runtime_data.client.ready)
         return entry

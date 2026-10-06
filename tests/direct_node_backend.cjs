@@ -33,19 +33,20 @@ if (process.argv[2] === '--seed') {
     var server = new native.LocalHomeServer({ directory: directory, runtime: runtime,
         host: '127.0.0.1', port: 0, name: 'Invented native Jibo', firmwareVersion: '13.2.1',
         getOwnerBinding: function () { return crypto.createHash('sha256').update('invented-owner').digest('hex'); },
-        onPairing: function (event) { if (event.phase === 'revealed') pairingEvent = event; } });
+        onPairing: function (event) { pairingEvent = event; } });
     function status() {
         return { ready: !!(server.session && server.session.ready), generation: server.state.generation,
             paired: !!server.state.credential_hash, direct_enabled: server.state.direct_enabled,
-            sas: pairingEvent && pairingEvent.sas, speaks: speaks, routing: server.routingPreference() };
+            pairing_version: pairingEvent && pairingEvent.pairing_version, code: pairingEvent && pairingEvent.code,
+            phase: pairingEvent && pairingEvent.phase, speaks: speaks, routing: server.routingPreference() };
     }
     function respond(id, result, error) {
         process.stdout.write(JSON.stringify({ id: id, result: result, error: error }) + '\n');
     }
     function operation(request) {
         switch (request.op) {
-        case 'open': server.openPairing(); pairingEvent = null; return true;
-        case 'approve': return server.approveCandidate(pairingEvent && pairingEvent.pair_id);
+        case 'open': return server.openPairing();
+        case 'cancel_pairing': return server.cancelPairing();
         case 'status': return status();
         case 'speak_result': speechResult = request.value; return true;
         case 'busy': busy = request.value === true; server.broadcastRoster(); return true;

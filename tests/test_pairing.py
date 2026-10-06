@@ -1,6 +1,5 @@
-"""Physical-pairing comparison, pinned TLS, guided migration and address changes."""
+"""Single-form physical-code SRP pairing, pinned TLS and preserved credentials."""
 
-import json
 from pathlib import Path
 from uuid import uuid4
 
@@ -14,13 +13,9 @@ from homeassistant.helpers.storage import Store
 
 from custom_components.phoenix.api import PhoenixError
 from custom_components.phoenix.local_api import (
-    authentication_string,
     begin_pairing,
-    client_commitment,
-    digest,
     finish_pairing,
     normalize_endpoint,
-    server_commitment,
 )
 from tests.direct_backend import SyntheticLocalRobot, linked_entry, wait_for
 
@@ -40,63 +35,129 @@ def make_entry(data, *, version=2, options=None, unique_id=None):
     )
 
 
-def test_independent_committed_pairing_vector():
-    claim_hash = digest("11" * 32)
-    assert claim_hash == "3138bb9bc78df27c473ecfd1410f7bd45ebac1f59cf3ff9cfe4db77aab7aedd3"
-    commitment = client_commitment("00" * 32, claim_hash)
-    assert commitment == "28574c789a729ffc50c6abc8ac3ff29ca01848ead0ea50adb7fe5653afb05471"
-    robot_id, pair_id = "22222222-2222-4222-8222-222222222222", "11111111-1111-4111-8111-111111111111"
-    assert (
-        server_commitment("33" * 32, robot_id, pair_id, commitment, claim_hash, "44" * 32)
-        == "4356fb6bd5852e44018b598c9d16955a642c52a380ef3d3a2146c0628088fe97"
+async def test_physical_code_completes_one_form_without_secondary_approval(hass, robot):
+    unavailable = await hass.config_entries.flow.async_init(
+        "phoenix",
+        context={"source": "user"},
+        data={"host": robot.host, "port": robot.port, "connection_code": "01234567"},
     )
-    assert authentication_string("33" * 32, robot_id, pair_id, "00" * 32, "44" * 32, claim_hash) == "17791418"
-
-
-async def test_pair_requires_both_robot_approval_and_owner_comparison(hass, robot):
-    robot.open_pairing()
-    result = await hass.config_entries.flow.async_init(
-        "phoenix", context={"source": "user"}, data={"host": robot.host, "port": robot.port}
+    assert unavailable["errors"] == {"base": "pairing_expired"}
+    assert robot.credential is None
+    code = robot.open_pairing()
+    finished = await hass.config_entries.flow.async_configure(
+        unavailable["flow_id"],
+        {
+            "host": robot.host,
+            "port": robot.port,
+            "connection_code": code,
+        },
     )
-    assert result["step_id"] == "pair_confirm"
-    assert result["description_placeholders"]["code"] == robot.candidate["sas"]
-    before = len(robot.http_requests)
-    rejected = await hass.config_entries.flow.async_configure(result["flow_id"], {"confirm_pairing": False})
-    assert rejected["errors"] == {"base": "codes_not_confirmed"}
-    assert len(robot.http_requests) == before and robot.credential is None
-    pending = await hass.config_entries.flow.async_configure(result["flow_id"], {"confirm_pairing": True})
-    assert pending["errors"] == {"base": "pairing_pending"} and robot.credential is None
-    robot.approve()
-    finished = await hass.config_entries.flow.async_configure(result["flow_id"], {"confirm_pairing": True})
     assert finished["type"] == "create_entry"
     entry = finished["result"]
     await wait_for(lambda: entry.runtime_data.client.ready)
     assert entry.data["fingerprint"] == robot.fingerprint and entry.unique_id == robot.robot_id
     assert entry.data["credential"] == robot.credential
-    assert "claim_secret" not in json.dumps(entry.as_dict()) and "client_nonce" not in json.dumps(entry.as_dict())
+    assert "connection_code" not in entry.data and "session_key" not in entry.data
+    assert "client_proof" not in entry.data and "claim_secret" not in entry.data
     assert robot.direct_enabled and not robot.announcements_enabled
+    assert robot.pairing_code is None and not robot.pairing_open
+    assert len([path for path, _, _ in robot.http_requests if "/pair/finish" in path]) == 1
 
 
-async def test_tampered_commitment_never_sends_secret_claim(hass, robot):
-    robot.open_pairing()
-    robot.tamper_commitment = True
+async def test_tampered_srp_challenge_never_sends_a_finish(hass, robot):
+    code = robot.open_pairing()
+    robot.tamper_challenge = True
     result = await hass.config_entries.flow.async_init(
-        "phoenix", context={"source": "user"}, data={"host": robot.host, "port": robot.port}
+        "phoenix",
+        context={"source": "user"},
+        data={"host": robot.host, "port": robot.port, "connection_code": code},
     )
     assert result["errors"] == {"base": "pairing_verification_failed"}
     assert not any(path.endswith("finish") for path, _, _ in robot.http_requests)
     assert robot.credential is None and not hass.config_entries.async_entries("phoenix")
 
 
-async def test_pairing_secret_is_independent_from_public_pair_id_and_nonce(hass, robot):
-    robot.open_pairing()
+async def test_pairing_code_and_operational_credential_never_appear_in_pair_http_bodies(hass, robot):
+    code = robot.open_pairing()
     async with ClientSession() as session:
-        candidate = await begin_pairing(session, normalize_endpoint(robot.host, robot.port))
-        assert candidate.claim_secret != candidate.client_nonce and len(candidate.claim_secret) == 64
-        robot.approve()
+        candidate = await begin_pairing(session, normalize_endpoint(robot.host, robot.port), code)
+        assert len(candidate.session_key) == 64
+        assert "session_key=" not in repr(candidate) and "client_proof=" not in repr(candidate)
         linked = await finish_pairing(session, candidate)
-    assert linked["generation"] == 1
-    assert candidate.claim_secret not in linked["credential"] and candidate.client_nonce not in linked["credential"]
+    assert linked["generation"] == 1 and linked["credential"] == robot.credential
+    for path, authorization, body in robot.http_requests:
+        assert authorization is None
+        assert not {"code", "connection_code", "credential", "password", "claim_secret", "session_key"} & body.keys()
+    assert candidate.verify(robot.candidate["result"]) == linked
+
+
+async def test_wrong_code_can_retry_the_same_form_and_never_issues_a_credential(hass, robot):
+    code = robot.open_pairing()
+    wrong = "00000000" if code != "00000000" else "11111111"
+    failed = await hass.config_entries.flow.async_init(
+        "phoenix",
+        context={"source": "user"},
+        data={"host": robot.host, "port": robot.port, "connection_code": wrong},
+    )
+    assert failed["errors"] == {"base": "pairing_rejected"}
+    assert not hass.config_entries.async_entries("phoenix") and robot.credential is None
+    finished = await hass.config_entries.flow.async_configure(
+        failed["flow_id"],
+        {
+            "host": robot.host,
+            "port": robot.port,
+            "connection_code": code,
+        },
+    )
+    assert finished["type"] == "create_entry" and robot.generation == 1
+
+
+async def test_invalid_code_is_rejected_before_tls_or_http(hass, robot):
+    result = await hass.config_entries.flow.async_init(
+        "phoenix",
+        context={"source": "user"},
+        data={"host": robot.host, "port": robot.port, "connection_code": "1234567"},
+    )
+    assert result["errors"] == {"base": "invalid_pairing_code"} and robot.http_requests == []
+
+
+async def test_tampered_server_binding_never_saves_an_operational_key(hass, robot):
+    code = robot.open_pairing()
+    robot.tamper_server_binding = True
+    result = await hass.config_entries.flow.async_init(
+        "phoenix",
+        context={"source": "user"},
+        data={"host": robot.host, "port": robot.port, "connection_code": code},
+    )
+    assert result["errors"] == {"base": "pairing_verification_failed"}
+    assert not hass.config_entries.async_entries("phoenix")
+
+
+async def test_lost_finish_is_recovered_without_another_pairing_mutation(hass, robot):
+    code = robot.open_pairing()
+    robot.lose_finish_response = True
+    result = await hass.config_entries.flow.async_init(
+        "phoenix",
+        context={"source": "user"},
+        data={"host": robot.host, "port": robot.port, "connection_code": code},
+    )
+    assert result["type"] == "create_entry", result
+    assert robot.generation == 1
+    steps = [path.rsplit("/", 1)[-1] for path, _, _ in robot.http_requests if "/pair/" in path]
+    assert steps == ["begin", "finish", "status"]
+
+
+async def test_unknown_pairing_outcome_is_reported_without_reissuing_a_claim(hass, robot):
+    code = robot.open_pairing()
+    robot.lose_finish_response = robot.status_unavailable = True
+    result = await hass.config_entries.flow.async_init(
+        "phoenix",
+        context={"source": "user"},
+        data={"host": robot.host, "port": robot.port, "connection_code": code},
+    )
+    assert result["errors"] == {"base": "pairing_confirmation_lost"}
+    assert robot.generation == 1 and not hass.config_entries.async_entries("phoenix")
+    assert len([path for path, _, _ in robot.http_requests if path.endswith("finish")]) == 1
 
 
 async def test_address_reconfigure_keeps_keys_and_pin(hass, robot):
@@ -109,7 +170,7 @@ async def test_address_reconfigure_keeps_keys_and_pin(hass, robot):
     assert result["type"] == "abort" and result["reason"] == "reconfigure_successful", result
     await wait_for(lambda: entry.runtime_data.client.ready)
     assert dict(entry.data) == original
-    assert len([path for path, _, _ in robot.http_requests if "/pair/" in path]) == 3
+    assert len([path for path, _, _ in robot.http_requests if "/pair/" in path]) == 2
 
 
 async def test_address_reconfigure_changed_cert_never_sends_key_to_peer(hass, robot, tmp_path):
@@ -176,13 +237,11 @@ async def test_legacy_migration_never_connects_cloud_and_explicitly_copies_area(
     flow = await hass.config_entries.flow.async_init(
         "phoenix", context={"source": "reauth", "entry_id": entry.entry_id}, data=entry.data
     )
-    robot.open_pairing()
-    started = await hass.config_entries.flow.async_configure(
-        flow["flow_id"], {"host": robot.host, "port": robot.port, "legacy_device_id": device.id}
+    code = robot.open_pairing()
+    result = await hass.config_entries.flow.async_configure(
+        flow["flow_id"],
+        {"host": robot.host, "port": robot.port, "connection_code": code, "legacy_device_id": device.id},
     )
-    assert started["step_id"] == "pair_confirm", started
-    robot.approve()
-    result = await hass.config_entries.flow.async_configure(started["flow_id"], {"confirm_pairing": True})
     assert result["type"] == "abort" and result["reason"] == "reauth_successful", result
     await wait_for(lambda: entry.runtime_data.client.ready)
     assert entry.unique_id == robot.robot_id and entry.data["migration_area_id"] == area.id
@@ -206,14 +265,50 @@ async def test_address_same_cert_wrong_robot_does_not_replace_identity(hass, rob
 
 
 async def test_expired_robot_pairing_window_cannot_issue_a_key(hass, robot):
-    robot.open_pairing()
-    form = await hass.config_entries.flow.async_init(
-        "phoenix", context={"source": "user"}, data={"host": robot.host, "port": robot.port}
+    code = robot.open_pairing()
+    async with ClientSession() as session:
+        candidate = await begin_pairing(session, normalize_endpoint(robot.host, robot.port), code)
+        robot.candidate["expires"] = 0
+        with pytest.raises(PhoenixError, match="pairing_expired"):
+            await finish_pairing(session, candidate)
+    assert robot.credential is None
+
+
+async def test_pairing_version_one_is_never_negotiated_as_a_downgrade(hass, robot):
+    code = robot.open_pairing()
+    robot.identity_pairing_version = 1
+    result = await hass.config_entries.flow.async_init(
+        "phoenix",
+        context={"source": "user"},
+        data={"host": robot.host, "port": robot.port, "connection_code": code},
     )
-    robot.approve()
-    robot.candidate["expires"] = 0
-    result = await hass.config_entries.flow.async_configure(form["flow_id"], {"confirm_pairing": True})
-    assert result["errors"] == {"base": "pairing_expired"} and robot.credential is None
+    assert result["errors"] == {"base": "pairing_upgrade_required"}
+    assert not any("/pair/" in path for path, _, _ in robot.http_requests)
+
+
+async def test_upgrade_retains_an_existing_local_v1_pairing_credential(hass, robot):
+    # Established v1 pairing credentials use the same local state schema.
+    # No new physical pairing or credential rotation is needed for an upgrade.
+    robot.credential, robot.generation, robot.direct_enabled = "dd" * 32, 9, True
+    data = {
+        "transport": "local",
+        "host": robot.host,
+        "port": robot.port,
+        "robot_id": robot.robot_id,
+        "fingerprint": robot.fingerprint,
+        "credential": robot.credential,
+        "generation": 9,
+        "name": robot.name,
+        "firmware_version": "13.2.2",
+    }
+    entry = make_entry(data)
+    await hass.config_entries.async_add(entry)
+    await wait_for(lambda: entry.runtime_data.client.ready)
+    assert dict(entry.data) == data
+    await hass.config_entries.async_reload(entry.entry_id)
+    await wait_for(lambda: entry.runtime_data.client.ready)
+    assert dict(entry.data) == data and entry.unique_id == robot.robot_id
+    assert not any("/pair/" in path for path, _, _ in robot.http_requests)
 
 
 async def test_removing_inert_legacy_entry_attempts_cleanup_and_removes_ledger(hass, monkeypatch):

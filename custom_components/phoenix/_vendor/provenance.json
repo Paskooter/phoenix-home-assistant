@@ -1,0 +1,12 @@
+{
+  "package": "aiohomekit",
+  "version": "4.0.1",
+  "source": "https://github.com/Jc2k/aiohomekit",
+  "archive": "https://files.pythonhosted.org/packages/1f/42/786d2bef2661968f22c065a76c2d4e4a81daf4567b030446ae239ee912ae/aiohomekit-4.0.1.tar.gz",
+  "archive_sha256": "5e00f87a9fae4829da6499bec91b0e55fa8d0565f8ce571da50737743fc91cd8",
+  "files": {
+    "aiohomekit_srp.py": "5d60f5fecf93ff31d1dce4076622eb84043475b133e80b270ca803cc028b1d89",
+    "LICENSE.aiohomekit": "4ae9600da97bff237b7a944fc5f5d968ac26c784d92c57beda614a3a0ca77e8d"
+  },
+  "runtime_note": "Exact unmodified standalone crypto/srp.py; Phoenix wrapper validates remote public values and uses 256-bit client exponents."
+}
