@@ -37,7 +37,7 @@
 </p>
 
 > [!NOTE]
-> **0.4.0b1 adds single-code setup and opt-in robot controls.** Its software checks passed on HA 2026.8.1 and 2026.9.4, and BE 13.3.0 starts normally on the test robot while preserving its existing pairing. Native screen text/images, ring, volume, audio, sleep/wake, Clock and continuous video have been exercised on the test robot. The full HA installation and physical pairing checks remain separate from developer hardware checks. The preceding 0.3.0b3 passed physical pairing, genuine voice-controlled light on/off and all 15 live sensors. [See the exact evidence](docs/validation.md).
+> **0.4.0b2 adds connection recovery guidance and three optional [automation blueprints](docs/automations.md): device announcements, low-battery reminders and scheduled sleep/wake.** Robot firmware requirements are unchanged. The single-code setup and opt-in robot controls introduced in 0.4.0b1 remain available. Its software checks passed on HA 2026.8.1 and 2026.9.4, and BE 13.3.0 starts normally on the test robot while preserving its existing pairing. Native screen text/images, ring, volume, audio, sleep/wake, Clock and continuous video have been exercised on the test robot. The full HA installation and physical pairing checks remain separate from developer hardware checks. The preceding 0.3.0b3 passed physical pairing, genuine voice-controlled light on/off and all 15 live sensors. [See the exact evidence](docs/validation.md).
 
 ## What Jibo can do
 
@@ -103,7 +103,7 @@ You won't need a Phoenix console code, your jibo.io password or a Home Assistant
 ## Install
 
 1. In HACS, add `https://github.com/Paskooter/phoenix-home-assistant` as a custom repository, type **Integration**. The **Open in HACS** button above takes you there.
-2. Open **Phoenix**, allow beta versions, choose **0.4.0b1** and download it.
+2. Open **Phoenix**, allow beta versions, choose **0.4.0b2** and download it.
 3. Restart Home Assistant. Refresh your browser if Phoenix doesn't appear when you add an integration.
 
 <details>

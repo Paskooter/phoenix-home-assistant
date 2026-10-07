@@ -1,5 +1,33 @@
 # Release validation
 
+## 0.4.0b2 / recovery and optional automations
+
+Local validation covers **168 checks on each of Home Assistant 2026.8.1 and
+2026.9.4** with Python 3.14.8: 165 public checks and three separately enabled
+private endpoint checks on the official Node 6.5.0 runtime. The public suite's
+three private-runtime skips were exercised separately on both versions.
+The final 2026.9.4 full run passed; the 2026.8.1 full run and all 14 control
+checks after the test-only entity-registration correction passed.
+
+New coverage includes connection recovery without replay, transient versus
+sustained outages, independent entry cleanup, malformed or unwritable durable
+request history, and actionable protocol failures. Eleven recovery checks pass
+on each version. Twenty blueprint checks per version use the real Home
+Assistant automation engine and invented paired devices to verify state-change
+announcements, hold cancellation, cooldowns, first-use announcements, low battery,
+missing readings, reconnects, permissions, quiet hours and scheduled sleep/wake.
+
+Request-history failures preserve the ledger and block new actions. A successful
+network reconnect cannot clear a storage failure; reloading verifies both
+reading and durable writing. Test fixtures bind to isolated loopback ports.
+The stale-state test now waits for actual entity registration and exercises the
+scheduled expiry callback, stale packets and future timestamps without a narrow
+wall-clock observation window. Production timing rules are unchanged.
+
+This companion release changes no robot firmware or OTA catalog. The earlier
+hardware results and their limits below remain the hardware evidence; the new
+blueprints have software acceptance, not newly claimed physical acceptance.
+
 ## 0.4.0b1 / BE 13.3.0 candidate
 
 The [release CI](https://github.com/Paskooter/phoenix-home-assistant/actions/runs/37431060566)
