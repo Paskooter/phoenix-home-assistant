@@ -13,6 +13,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
 
+from custom_components.phoenix import client as client_module
 from custom_components.phoenix.const import DOMAIN
 from custom_components.phoenix.controls import CONTROL_OPTIONS
 from custom_components.phoenix.controls_api import async_upload_media
@@ -377,7 +378,7 @@ async def test_authenticated_name_updates_preserve_user_name_area_and_ids(hass, 
     assert entry.data["credential"] == credential and entry.data["generation"] == generation
 
 
-async def test_missing_malformed_stale_native_states_never_become_idle_or_off(hass, control_robot):
+async def test_missing_malformed_stale_native_states_never_become_idle_or_off(hass, control_robot, monkeypatch):
     entry = await linked_entry(hass, control_robot)
     client = await enable_controls(hass, entry, control_robot)
     ring = entity(hass, entry, "light", "ring_light")
@@ -393,17 +394,47 @@ async def test_missing_malformed_stale_native_states_never_become_idle_or_off(ha
     )
     await wait_for(lambda: client.observed_control("speaker_volume_percent") is None)
     assert ring.rgb_color is None and ring.is_on is None and speaker.state is None and sleep.is_on is None
+    scheduled = []
+
+    def capture_expiry(_hass, delay, callback):
+        scheduled.append((delay, callback))
+        return lambda: None
+
+    monkeypatch.setattr(client_module, "async_call_later", capture_expiry)
     old = client
-    control_robot.initial_state_age_ms = 59_750
+    control_robot.initial_state_age_ms = 10_000
     await hass.config_entries.async_reload(entry.entry_id)
     await wait_for(lambda: entry.runtime_data.client is not old and entry.runtime_data.client.ready)
     client = entry.runtime_data.client
+    # A verified socket can be ready before roster-driven platform additions.
+    await wait_for(
+        lambda: all(
+            entity(hass, entry, domain, key) is not None
+            for domain, key in (("light", "ring_light"), ("media_player", "speaker"), ("switch", "sleep_control"))
+        )
+    )
     ring = entity(hass, entry, "light", "ring_light")
     speaker = entity(hass, entry, "media_player", "speaker")
     sleep = entity(hass, entry, "switch", "sleep_control")
     await wait_for(lambda: speaker.volume_level == 0.42)
-    await wait_for(lambda: client.control_received_at is None)
+    # Verify the real scheduler receives the measurement's remaining lifetime,
+    # then deliver its actual callback without racing a 250 ms observation window.
+    assert len(scheduled) == 1 and scheduled[0][0] == pytest.approx(50, abs=0.5)
+    scheduled[0][1](None)
+    assert client.control_received_at is None
     assert ring.is_on is None and speaker.volume_level is None and sleep.is_on is None
+    changed = asyncio.Event()
+    unsubscribe = client.subscribe(changed.set)
+    try:
+        for age in (61_000, -2_000):
+            changed.clear()
+            await control_robot.controls_state(age_ms=age)
+            await asyncio.wait_for(changed.wait(), 2)
+            assert client.control_received_at is None and client.control_values == {}
+            assert ring.is_on is None and speaker.volume_level is None and sleep.is_on is None
+            assert len(scheduled) == 1
+    finally:
+        unsubscribe()
     with pytest.raises(ServiceValidationError):
         await client.async_control(control_robot.robot_id, "run_skill", {"skill_id": "@invented/clock"})
     assert not control_robot.control_calls
