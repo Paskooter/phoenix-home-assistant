@@ -99,12 +99,13 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
         except PhoenixError, KeyError:
             local_revoked = False
     if not local_revoked:
-        _LOGGER.warning("Local pairing could not be revoked while removing the entry; use Forget on Jibo")
+        _LOGGER.warning("Local pairing could not be revoked while removing the entry; use Manage → Disconnect on Jibo")
         persistent_notification.async_create(
             hass,
-            "Use Settings → Home Assistant → Forget on Jibo to finish removing this local connection. "
+            "Use Settings → Home Assistant → Manage → Disconnect on Jibo and confirm Disconnect "
+            "to finish removing this local connection. "
             "The robot was unreachable during removal. Cloud home control will stay disabled.",
-            title="Forget Jibo's local pairing",
+            title="Disconnect Jibo's local pairing",
             notification_id=f"{DOMAIN}_removal",
         )
     await RequestLedger(hass, entry.entry_id).async_remove()

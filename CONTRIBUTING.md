@@ -4,7 +4,7 @@ Use Python 3.14.2 or newer. Tests run disposable Home Assistant instances with i
 
 ```sh
 python3.14 -m venv .venv
-.venv/bin/pip install homeassistant==2026.9.4 -r requirements-test.txt -r requirements-conversation-2026.9.4.txt
+.venv/bin/pip install homeassistant==2026.9.4 -r requirements-test.txt -r requirements-controls.txt -r requirements-conversation-2026.9.4.txt
 .venv/bin/python -B -m pytest -q -s
 .venv/bin/ruff check custom_components tests
 .venv/bin/ruff format --check custom_components tests

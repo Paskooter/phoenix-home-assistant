@@ -17,7 +17,7 @@ if project := os.environ.get("JEV_PROJECT_DIR"):
 
 
 @pytest.fixture
-async def hass(tmp_path):
+async def hass(tmp_path, unused_tcp_port):
     hass = HomeAssistant(str(tmp_path))
     hass.config.skip_pip = True
     hass.config.language = "en"
@@ -27,6 +27,11 @@ async def hass(tmp_path):
     assert await bootstrap.async_load_base_functionality(hass)
     hass.auth = await auth.auth_manager_from_config(hass, [{"type": "homeassistant"}], [])
     assert await async_setup_component(hass, "homeassistant", {})
+    # Real HTTP dependencies must remain private and allow concurrent isolated
+    # suites, rather than sharing Home Assistant's public default port 8123.
+    assert await async_setup_component(
+        hass, "http", {"http": {"server_host": "127.0.0.1", "server_port": unused_tcp_port}}
+    )
     yield hass
     await hass.async_stop(force=True)
 

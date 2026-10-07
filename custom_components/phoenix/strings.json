@@ -329,5 +329,27 @@
       "name": "Clear Jibo’s Home Assistant screen",
       "description": "Close only the screen opened by this integration; leave other robot activity alone."
     }
+  },
+  "issues": {
+    "connection_unavailable": {
+      "title": "{name} has been disconnected for five minutes",
+      "description": "Home Assistant cannot reach this Jibo over the paired local connection. Check that Jibo is powered on and on a reachable local network. If his address changed, open Settings → Devices & services → Phoenix, choose this entry’s menu, and select Reconfigure. The new address must pass the saved certificate and pairing checks. Reconnecting clears this issue automatically. Commands and announcements are never queued or replayed."
+    },
+    "unsupported_protocol": {
+      "title": "{name} needs compatible Home Assistant software",
+      "description": "Jibo rejected the local connection because the protocol is incompatible. Check the supported Phoenix integration and Jibo firmware versions in the installation guide, then reload this entry. The integration has stopped reconnecting; it has not changed the pairing or started a cloud connection."
+    },
+    "invalid_peer": {
+      "title": "{name} could not verify the local connection",
+      "description": "The local endpoint did not return the expected paired Jibo identity, pairing generation or protocol. Check the address in this entry’s Reconfigure form; it verifies the existing certificate and pairing before saving. If Jibo was deliberately paired again, use the physical replacement flow. No home command was accepted on this unverified connection."
+    },
+    "connection_replaced": {
+      "title": "{name} has another Home Assistant connection",
+      "description": "Another connection replaced this entry’s local session. Check whether a second Home Assistant instance is using a copied pairing. Stop the duplicate instance, then reload the intended Phoenix entry. Reconnecting automatically could make both instances repeatedly disconnect each other, so this entry has stopped reconnecting. Requests are never replayed."
+    },
+    "request_storage": {
+      "title": "{name} cannot save request history",
+      "description": "Phoenix could not read or durably save its local request ledger. New home commands, announcements and controls are blocked to prevent repeating an action after a restart. Check Home Assistant’s free disk space, storage permissions and logs, then reload this entry. Reload checks both reading and writing before reconnecting. Keep the existing ledger and pairing; do not delete request history to clear this issue. No failed request is retried automatically."
+    }
   }
 }

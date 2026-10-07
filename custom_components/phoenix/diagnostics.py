@@ -13,6 +13,8 @@ async def async_get_config_entry_diagnostics(hass, entry):
         "transport": "local" if entry.data.get("transport") == "local" else "pairing_required",
         "connection_state": client.state,
         "last_error": client.last_error,
+        "recovery_issues": sorted(client.recovery.active),
+        "request_storage_failed": client._storage_failed,
         "active_commands": len(client.commands),
         "active_announcements": len(client.pending_actions),
         "capabilities": sorted(client.capabilities),

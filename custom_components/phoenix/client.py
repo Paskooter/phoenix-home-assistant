@@ -83,6 +83,7 @@ from .controls import (
 )
 from .ledger import RequestLedger
 from .local_api import LocalFingerprint, LocalTLSRejected, canonical_uuid, hexadecimal, normalize_endpoint
+from .recovery import PhoenixRecovery
 from .telemetry import TELEMETRY_SECONDS, validate_values
 
 _LOGGER = logging.getLogger(__name__)
@@ -203,6 +204,7 @@ class PhoenixClient:
         self.generation = entry.data.get("generation")
         self.state = "disconnected"
         self.last_error: str | None = None
+        self.recovery = PhoenixRecovery(hass, entry)
         self.listeners: set[Callable[[], None]] = set()
         self.socket: ClientWebSocketResponse | None = None
         self.session_id: str | None = None
@@ -286,6 +288,7 @@ class PhoenixClient:
     def set_state(self, state: str, error: str | None = None) -> None:
         self.state = state
         self.last_error = error
+        self.recovery.state_changed(state, error)
         self._notify()
 
     async def async_run(self) -> None:
@@ -315,9 +318,16 @@ class PhoenixClient:
                 for key, expiry in self.seen.items()
             ):
                 raise ValueError("Invalid request storage")
+            # Reading a ledger does not prove that future admissions can be
+            # saved. Preserve all tombstones while checking durable writes too.
+            await self.storage.async_save(self.seen)
+            self.recovery.storage_ready()
         except Exception:  # A corrupt dedupe store must fail closed.
+            self._storage_failed = True
             self.set_state("protocol_error", "request_storage")
-            _LOGGER.error("Phoenix request storage unavailable; repair or relink the integration")
+            _LOGGER.error(
+                "Phoenix request storage unavailable; check Home Assistant storage, then reload the integration"
+            )
             return
         attempts = 0
         while not self.stopping:
@@ -1053,6 +1063,7 @@ class PhoenixClient:
                 await self.storage.async_save(self.seen)
             except Exception:
                 self._storage_failed = True
+                self.recovery.storage_failed()
                 raise
 
     async def _execute(
@@ -1482,6 +1493,7 @@ class PhoenixClient:
 
     async def async_stop(self) -> None:
         self.stopping = True
+        self.recovery.stop()
         if self.socket is not None:
             await self.socket.close()
         await self._cancel_commands()
