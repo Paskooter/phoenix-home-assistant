@@ -1,4 +1,4 @@
-"""Owner recovery guidance through actual isolated HA and pinned TLS sessions."""
+"""Connection recovery via disposable Home Assistant and invented TLS peers."""
 
 import asyncio
 import errno
