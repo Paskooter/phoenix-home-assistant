@@ -20,7 +20,8 @@ missing readings, reconnects, permissions, quiet hours and scheduled sleep/wake.
 Request-history failures preserve the ledger and block new actions. A successful
 network reconnect cannot clear a storage failure; reloading verifies both
 reading and durable writing. Test fixtures bind to isolated loopback ports.
-The stale-state test now waits for actual entity registration and exercises the
+The native control tests now wait for actual entity registration. The
+stale-state test exercises the
 scheduled expiry callback, stale packets and future timestamps without a narrow
 wall-clock observation window. Production timing rules are unchanged.
 

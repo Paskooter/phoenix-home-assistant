@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 from homeassistant.components import conversation
+from homeassistant.helpers import entity_registry as er
 
 from tests.direct_backend import wait_for
 from tests.test_agents import choose_agent
@@ -198,14 +199,35 @@ async def test_actual_node6_controls_media_camera_touch_and_permission_revocatio
         },
     )
     await wait_for(lambda: entry.runtime_data.client.ready)
+    # The transport may reconnect before HA has added the reloaded entities.
+    # Wait for every object before retaining references for native controls.
+    await wait_for(
+        lambda: all(
+            (entity_id := er.async_get(hass).async_get_entity_id(domain, "phoenix", f"{entry.unique_id}_{key}"))
+            and domain in hass.data
+            and hass.data[domain].get_entity(entity_id) is not None
+            for domain, key in (
+                ("text", "screen_text"),
+                ("light", "ring_light"),
+                ("media_player", "speaker"),
+                ("switch", "sleep_control"),
+                ("select", "installed_skill"),
+                ("camera", "camera"),
+                ("button", "stop_activity"),
+            )
+        )
+    )
     screen = entity(hass, entry, "text", "screen_text")
     ring = entity(hass, entry, "light", "ring_light")
     speaker = entity(hass, entry, "media_player", "speaker")
     sleep = entity(hass, entry, "switch", "sleep_control")
     skills = entity(hass, entry, "select", "installed_skill")
     camera = entity(hass, entry, "camera", "camera")
+    stop = entity(hass, entry, "button", "stop_activity")
     try:
-        await wait_for(lambda: screen.available and ring.available and camera.available)
+        await wait_for(
+            lambda: all(control.available for control in (screen, ring, speaker, sleep, skills, camera, stop))
+        )
     except TimeoutError:
         client = entry.runtime_data.client
         raise AssertionError(
@@ -241,7 +263,7 @@ async def test_actual_node6_controls_media_camera_touch_and_permission_revocatio
     await wait_for(lambda: sleep.is_on is False)
     await skills.async_select_option("Clock")
     await wait_for(lambda: skills.current_option == "Clock")
-    await entity(hass, entry, "button", "stop_activity").async_press()
+    await stop.async_press()
     await wait_for(lambda: skills.current_option is None)
     await camera.async_turn_on()
     await wait_for(lambda: camera.is_on is True)
