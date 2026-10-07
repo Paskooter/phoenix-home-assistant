@@ -160,6 +160,8 @@ Everything after pairing lives in Home Assistant.
 
 Automations can speak through Jibo once you allow it. Turn on **Allow announcements** in **Phoenix** › **Configure**; it's off by default. Optional quiet hours there use Home Assistant's time zone and can cross midnight.
 
+[Import a ready-made automation](docs/automations.md) for a device-state announcement, a low-battery reminder, or a sleep/wake schedule. Choose your own entities and times in Home Assistant.
+
 In <kbd>Developer tools</kbd> › <kbd>Actions</kbd>, choose **Notifications: Send a message** and your Jibo's **Announcement** entity, or use it in an automation:
 
 ```yaml
@@ -274,6 +276,7 @@ Disabling an entry only stops its connection; it doesn't revoke the pairing. **M
 | :--- | :--- |
 | [Installation, upgrade and removal](https://github.com/Paskooter/phoenix-home-assistant/blob/main/docs/installation.md) | Every step in detail, including address changes, certificates and replacement |
 | [Troubleshooting](https://github.com/Paskooter/phoenix-home-assistant/blob/main/docs/troubleshooting.md) | Symptoms and what to check |
+| [Ready-made automations](https://github.com/Paskooter/phoenix-home-assistant/blob/main/docs/automations.md) | Import device announcements, battery reminders and sleep/wake schedules |
 | [Trust and permissions](https://github.com/Paskooter/phoenix-home-assistant/blob/main/docs/security.md) | What is trusted, stored and revoked |
 | [Protocol](https://github.com/Paskooter/phoenix-home-assistant/blob/main/docs/protocol.md) | The wire contract between Home Assistant and Jibo |
 | [Validation](https://github.com/Paskooter/phoenix-home-assistant/blob/main/docs/validation.md) | Hardware and software results, kept apart, and what's still open |

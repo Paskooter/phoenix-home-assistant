@@ -1,0 +1,94 @@
+blueprint:
+  name: Jibo — announce a device state change
+  description: >-
+    Say a short message when one device changes between two chosen states.
+    Enable announcements in Phoenix → Configure first. Choose the actual states
+    from Developer tools → States (for example off and on). Unavailable/startup
+    readings do not trigger an announcement. Busy, offline and quiet-hour
+    announcements are skipped, never queued or retried. A cooldown limits repeats.
+  domain: automation
+  author: Phoenix
+  homeassistant:
+    min_version: 2026.8.1
+  source_url: https://github.com/Paskooter/phoenix-home-assistant/blob/main/blueprints/automation/phoenix/state_announcement.yaml
+  input:
+    watched_entity:
+      name: Device to watch
+      selector:
+        entity: {}
+    from_state:
+      name: Previous state
+      default: "off"
+      selector:
+        text: {}
+    to_state:
+      name: New state
+      default: "on"
+      selector:
+        text: {}
+    hold_seconds:
+      name: Wait for the new state to last
+      description: Zero announces immediately. A change back cancels this wait.
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 300
+          step: 1
+          unit_of_measurement: seconds
+          mode: box
+    announcement_entity:
+      name: Jibo announcement
+      selector:
+        entity:
+          filter:
+            integration: phoenix
+            domain: notify
+    message:
+      name: Message
+      description: Plain text, 1–300 characters. Jibo uses his current volume.
+      default: "The device is ready."
+      selector:
+        text: {}
+    cooldown_seconds:
+      name: Minimum time between announcements
+      default: 60
+      selector:
+        number:
+          min: 1
+          max: 3600
+          step: 1
+          unit_of_measurement: seconds
+          mode: box
+
+mode: single
+max_exceeded: silent
+variables:
+  announcement_entity: !input announcement_entity
+  announcement_message: !input message
+triggers:
+  - trigger: state
+    entity_id: !input watched_entity
+    from: !input from_state
+    to: !input to_state
+    for:
+      seconds: !input hold_seconds
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.from_state is not none and trigger.to_state is not none
+         and trigger.from_state.state not in ['unknown', 'unavailable']
+         and trigger.to_state.state not in ['unknown', 'unavailable']
+         and trigger.from_state.state != trigger.to_state.state
+         and states[announcement_entity] is not none
+         and not is_state(announcement_entity, 'unavailable')
+         and 0 < announcement_message | trim | length <= 300 }}
+actions:
+  - action: notify.send_message
+    continue_on_error: true
+    target:
+      entity_id: !input announcement_entity
+    data:
+      message: "{{ announcement_message | trim }}"
+  - delay:
+      seconds: !input cooldown_seconds

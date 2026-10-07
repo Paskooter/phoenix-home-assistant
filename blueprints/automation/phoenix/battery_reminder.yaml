@@ -1,0 +1,107 @@
+blueprint:
+  name: Jibo — remind me to plug him in
+  description: >-
+    Jibo speaks once when his battery drops below your limit while unplugged,
+    or when you unplug him with an already-low battery. Select his Battery,
+    Plugged in and Announcement entities and enable announcements in Phoenix →
+    Configure. Missing readings and reconnects do not invent a low battery.
+    Busy, offline and quiet-hour reminders are skipped, never queued or retried.
+  domain: automation
+  author: Phoenix
+  homeassistant:
+    min_version: 2026.8.1
+  source_url: https://github.com/Paskooter/phoenix-home-assistant/blob/main/blueprints/automation/phoenix/battery_reminder.yaml
+  input:
+    battery_entity:
+      name: Jibo battery
+      selector:
+        entity:
+          filter:
+            integration: phoenix
+            domain: sensor
+            device_class: battery
+    plugged_in_entity:
+      name: Jibo plugged in
+      selector:
+        entity:
+          filter:
+            integration: phoenix
+            domain: binary_sensor
+            device_class: plug
+    announcement_entity:
+      name: Jibo announcement
+      selector:
+        entity:
+          filter:
+            integration: phoenix
+            domain: notify
+    battery_threshold:
+      name: Remind below
+      default: 20
+      selector:
+        number:
+          min: 5
+          max: 90
+          step: 1
+          unit_of_measurement: "%"
+          mode: slider
+    message:
+      name: Message
+      description: Plain text, 1–300 characters.
+      default: "My battery is getting low. Please plug me in."
+      selector:
+        text: {}
+    cooldown_minutes:
+      name: Minimum time between reminders
+      default: 30
+      selector:
+        number:
+          min: 1
+          max: 240
+          step: 1
+          unit_of_measurement: minutes
+          mode: box
+
+mode: single
+max_exceeded: silent
+variables:
+  battery_entity: !input battery_entity
+  battery_threshold: !input battery_threshold
+  announcement_entity: !input announcement_entity
+  announcement_message: !input message
+triggers:
+  - trigger: numeric_state
+    id: battery_low
+    entity_id: !input battery_entity
+    below: !input battery_threshold
+  - trigger: state
+    id: unplugged
+    entity_id: !input plugged_in_entity
+    from: "on"
+    to: "off"
+conditions:
+  - condition: state
+    entity_id: !input plugged_in_entity
+    state: "off"
+  - condition: template
+    value_template: >-
+      {{ is_number(states(battery_entity))
+         and 0 <= states(battery_entity) | float < battery_threshold | float
+         and states[announcement_entity] is not none
+         and not is_state(announcement_entity, 'unavailable')
+         and 0 < announcement_message | trim | length <= 300 }}
+  - condition: template
+    value_template: >-
+      {{ trigger.id == 'unplugged'
+         or (trigger.from_state is not none
+             and is_number(trigger.from_state.state)
+             and trigger.from_state.state | float >= battery_threshold | float) }}
+actions:
+  - action: notify.send_message
+    continue_on_error: true
+    target:
+      entity_id: !input announcement_entity
+    data:
+      message: "{{ announcement_message | trim }}"
+  - delay:
+      minutes: !input cooldown_minutes
