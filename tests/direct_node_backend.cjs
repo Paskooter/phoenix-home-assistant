@@ -22,6 +22,8 @@ if (process.argv[2] === '--seed') {
     var speechResult = 'SUCCEEDED';
     var telemetry = null;
     var busy = false;
+    var ownerAvailable = true, ownerBinding = crypto.createHash('sha256').update('invented-owner').digest('hex');
+    var connectionAttempts = 0, retryableAttempts = 0;
     var runtime = {
         isBusy: function () { return busy; },
         consumeHomeGate: function (gate) { if (!gates.has(gate)) return false; gates.delete(gate); return true; },
@@ -36,14 +38,26 @@ if (process.argv[2] === '--seed') {
     });
     server = new native.LocalHomeServer({ directory: directory, runtime: runtime, controls: controls.adapter,
         host: '127.0.0.1', port: 0, name: 'Invented native Jibo', firmwareVersion: '13.3.0',
-        getOwnerBinding: function () { return crypto.createHash('sha256').update('invented-owner').digest('hex'); },
+        getOwnerBinding: function () { return ownerAvailable ? ownerBinding : null; },
         onPairing: function (event) { pairingEvent = event; } });
+    var originalUpgrade = server._upgrade;
+    server._upgrade = function (request, socket, head) {
+        connectionAttempts++;
+        var originalEnd = socket.end;
+        socket.end = function (response) {
+            if (typeof response === 'string' && response.indexOf('HTTP/1.1 503 ') === 0) retryableAttempts++;
+            return originalEnd.apply(socket, arguments);
+        };
+        return originalUpgrade.call(server, request, socket, head);
+    };
     function status() {
         return { ready: !!(server.session && server.session.ready), generation: server.state.generation,
             paired: !!server.state.credential_hash, direct_enabled: server.state.direct_enabled,
             pairing_version: pairingEvent && pairingEvent.pairing_version, code: pairingEvent && pairingEvent.code,
             phase: pairingEvent && pairingEvent.phase, speaks: speaks, routing: server.routingPreference(),
-            controls: controls.adapter.snapshot(), calls: controls.calls };
+            controls: controls.adapter.snapshot(), calls: controls.calls,
+            session_id: server.session && server.session.id, connection_attempts: connectionAttempts,
+            retryable_attempts: retryableAttempts };
     }
     function respond(id, result, error) {
         process.stdout.write(JSON.stringify({ id: id, result: result, error: error }) + '\n');
@@ -65,6 +79,11 @@ if (process.argv[2] === '--seed') {
             server.broadcastTelemetry(telemetry); return true;
         case 'disconnect':
             if (server.session) server.session.socket.terminate(); return true;
+        case 'owner_available':
+            ownerAvailable = request.value !== false; server._checkBinding(); return true;
+        case 'owner_change':
+            ownerBinding = crypto.createHash('sha256').update('invented-replacement-owner').digest('hex');
+            server._checkBinding(); return true;
         case 'revoke': server.revoke(); return true;
         case 'close': return server.destroy().then(function () { return controls.adapter.destroy(); }).then(function () { return true; });
         default: throw new Error('Unknown fixture operation');

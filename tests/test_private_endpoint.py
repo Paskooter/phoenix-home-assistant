@@ -5,6 +5,7 @@ locally; this file never retrieves, copies or publishes the private module.
 """
 
 import asyncio
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -278,3 +279,69 @@ async def test_actual_node6_controls_media_camera_touch_and_permission_revocatio
     await choose_agent(hass, entry, conversation.HOME_ASSISTANT_AGENT, allow_screen=False, allow_camera=False)
     await wait_for(lambda: entry.runtime_data.client is not previous_client and entry.runtime_data.client.ready)
     await wait_for(lambda: (screen := entity(hass, entry, "text", "screen_text")) is not None and not screen.available)
+
+
+async def test_actual_node6_sleep_keeps_sensors_and_temporary_owner_outage_reconnects_without_reauth(hass, native_peer):
+    """Real HA/TLS/Node6; SDK sleep is synthetic, owner trust remains strict."""
+    kitchen, _ = await install_devices(hass)
+    entry = await native_peer.linked_entry(hass)
+    await choose_agent(hass, entry, conversation.HOME_ASSISTANT_AGENT, allow_sleep=True)
+    await wait_for(lambda: entry.runtime_data.client.ready)
+    await wait_for(
+        lambda: (entity_id := er.async_get(hass).async_get_entity_id("switch", "phoenix", f"{entry.unique_id}_sleep_control"))
+        and "switch" in hass.data
+        and (switch := hass.data["switch"].get_entity(entity_id)) is not None
+        and switch.available
+    )
+    client = entry.runtime_data.client
+    sleep = entity(hass, entry, "switch", "sleep_control")
+    pairing_digest = hashlib.sha256(json.dumps(dict(entry.data), sort_keys=True).encode()).hexdigest()
+    result = await native_peer.rpc("command", text="turn on kitchen lights")
+    assert result["outcome"] == "success" and len(kitchen.calls) == 1
+    await sleep.async_turn_on()
+    await wait_for(lambda: sleep.is_on is True)
+    await native_peer.rpc("telemetry", values={"sleeping": True, "battery_percent": 73})
+    sleeping_id = metric_id(hass, native_peer, "sleeping")
+    battery_id = metric_id(hass, native_peer, "battery_percent")
+    await wait_for(lambda: hass.states.get(sleeping_id).state == "on" and hass.states.get(battery_id).state == "73")
+    before = await native_peer.rpc("status")
+    await asyncio.sleep(10.2)  # Cross the actual endpoint's heartbeat while asleep.
+    during_sleep = await native_peer.rpc("status")
+    assert client.ready and during_sleep["ready"] and during_sleep["session_id"] == before["session_id"]
+    assert hass.states.get(sleeping_id).state == "on" and hass.states.get(battery_id).state == "73"
+
+    # Reproduce a failed/expired native ownership cache, not a revoked pairing.
+    await native_peer.rpc("owner_available", value=False)
+    await wait_for(lambda: not client.ready)
+    await wait_for(lambda: hass.states.get(battery_id).state == "unavailable")
+    retry = None
+    for _ in range(120):
+        retry = await native_peer.rpc("status")
+        if retry["retryable_attempts"] > before["retryable_attempts"]:
+            break
+        await asyncio.sleep(0.05)
+    assert retry["retryable_attempts"] > before["retryable_attempts"], "valid retained key never got retryable HTTP 503"
+    assert client.state == "disconnected" and client.last_error == "cannot_connect"
+    assert retry["paired"] and retry["generation"] == before["generation"]
+    assert not any(
+        flow["context"].get("source") == "reauth" and flow["context"].get("entry_id") == entry.entry_id
+        for flow in hass.config_entries.flow.async_progress()
+    )
+    assert hashlib.sha256(json.dumps(dict(entry.data), sort_keys=True).encode()).hexdigest() == pairing_digest
+    await native_peer.rpc("owner_available", value=True)
+    await wait_for(lambda: client.ready, seconds=16)
+    assert entry.runtime_data.client is client and len(kitchen.calls) == 1, "no reload, grant replacement or command replay"
+    await native_peer.rpc("telemetry", values={"sleeping": True, "battery_percent": 74})
+    await wait_for(lambda: hass.states.get(battery_id).state == "74" and sleep.available and sleep.is_on is True)
+    await sleep.async_turn_off()
+    await wait_for(lambda: sleep.is_on is False)
+    await native_peer.rpc("telemetry", values={"sleeping": False, "battery_percent": 74})
+    await wait_for(lambda: hass.states.get(sleeping_id).state == "off")
+    assert client.ready and len(kitchen.calls) == 1
+
+    # Real ownership changes still revoke and stop HA's automatic attempts.
+    await native_peer.rpc("owner_change")
+    await wait_for(lambda: client.state == "authentication_required", seconds=12)
+    assert client.last_error == "invalid_auth" and not client.ready
+    revoked = await native_peer.rpc("status")
+    assert not revoked["paired"] and revoked["generation"] == before["generation"] + 1
