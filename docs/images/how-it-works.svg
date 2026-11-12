@@ -68,7 +68,7 @@
 
     <!-- The voice turn. -->
     <line class="flow-warm" x1="306" y1="170" x2="564" y2="170" stroke="#ffb347" stroke-opacity=".85" stroke-width="7" stroke-linecap="round" stroke-dasharray="0 20"/>
-    <text x="435" y="148" text-anchor="middle" font-size="13" font-weight="650" letter-spacing="2.4" fill="#c79a6a">VOICE TURN</text>
+    <text x="374" y="148" text-anchor="middle" font-size="13" font-weight="650" letter-spacing="2.4" fill="#c79a6a">VOICE TURN</text>
 
     <!-- Jibo, named in words: no drawing of the robot. -->
     <rect x="580" y="100" width="140" height="140" rx="36" fill="url(#jiboFill)" stroke="#ffffff" stroke-opacity=".28" stroke-width="2"/>
