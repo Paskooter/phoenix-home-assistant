@@ -288,10 +288,16 @@ async def test_actual_node6_sleep_keeps_sensors_and_temporary_owner_outage_recon
     await choose_agent(hass, entry, conversation.HOME_ASSISTANT_AGENT, allow_sleep=True)
     await wait_for(lambda: entry.runtime_data.client.ready)
     await wait_for(
-        lambda: (entity_id := er.async_get(hass).async_get_entity_id("switch", "phoenix", f"{entry.unique_id}_sleep_control"))
-        and "switch" in hass.data
-        and (switch := hass.data["switch"].get_entity(entity_id)) is not None
-        and switch.available
+        lambda: (
+            (
+                entity_id := er.async_get(hass).async_get_entity_id(
+                    "switch", "phoenix", f"{entry.unique_id}_sleep_control"
+                )
+            )
+            and "switch" in hass.data
+            and (switch := hass.data["switch"].get_entity(entity_id)) is not None
+            and switch.available
+        )
     )
     client = entry.runtime_data.client
     sleep = entity(hass, entry, "switch", "sleep_control")
@@ -330,7 +336,9 @@ async def test_actual_node6_sleep_keeps_sensors_and_temporary_owner_outage_recon
     assert hashlib.sha256(json.dumps(dict(entry.data), sort_keys=True).encode()).hexdigest() == pairing_digest
     await native_peer.rpc("owner_available", value=True)
     await wait_for(lambda: client.ready, seconds=16)
-    assert entry.runtime_data.client is client and len(kitchen.calls) == 1, "no reload, grant replacement or command replay"
+    assert entry.runtime_data.client is client and len(kitchen.calls) == 1, (
+        "no reload, grant replacement or command replay"
+    )
     await native_peer.rpc("telemetry", values={"sleeping": True, "battery_percent": 74})
     await wait_for(lambda: hass.states.get(battery_id).state == "74" and sleep.available and sleep.is_on is True)
     await sleep.async_turn_off()
